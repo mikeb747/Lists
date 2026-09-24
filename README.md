@@ -64,38 +64,38 @@
     Settings button
         An area for other future options, backup and import, colour/dark mode switch, version numbers etc.
 
-Data Storage
-  Local Storage
-  IndexedDB
-  No backend
-  No account required
-  No cloud sync
-  
-  Data stored entirely on device.
-
-  User Interface
-    Mobile First Design
-    Android friendly
-    Responsive layout
-    Large touch targets
-    Appearance
-    Modern Material Design styling
-    Rounded cards
-    Smooth animations
-    Floating Add Task button
-    Dark Mode (Buttom hidden in settings)
-
-  Notifications
-    Due date reminders
-    Data and time set reminders
-
-Progressive Web App (PWA)
-  Installation
-  Hosted on GitHub Pages
-  Installable from Chrome
-  Runs like an app
-  Home screen icon
-  PWA Components
-  manifest.json
+    Data Storage
+      Local Storage
+      IndexedDB
+      No backend
+      No account required
+      No cloud sync
+      
+      Data stored entirely on device.
+    
+      User Interface
+        Mobile First Design
+        Android friendly
+        Responsive layout
+        Large touch targets
+        Appearance
+        Modern Material Design styling
+        Rounded cards
+        Smooth animations
+        Floating Add Task button
+        Dark Mode (Buttom hidden in settings)
+    
+      Notifications
+        Due date reminders
+        Data and time set reminders
+    
+    Progressive Web App (PWA)
+      Installation
+      Hosted on GitHub Pages
+      Installable from Chrome
+      Runs like an app
+      Home screen icon
+      PWA Components
+      manifest.json
   service-worker.js
   custom 192x192 and 512x512 icons
