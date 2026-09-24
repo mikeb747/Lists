@@ -1,18 +1,22 @@
 {
-  "name": "Priority Planner",
-  "short_name": "Planner",
-  "description": "Plan and prioritize tasks offline.",
+  "name": "Lists",
+  "short_name": "Lists",
+  "description": "Plan and prioritize lists offline.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#1c1b1f",
   "theme_color": "#6750A4",
-  "icons": [
-    {
-      "src": "./icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ]
+"icons": [
+{
+"src": "icons/icon-192.png",
+"sizes": "192x192",
+"type": "image/png"
+},
+{
+"src": "icons/icon-512.png",
+"sizes": "512x512",
+"type": "image/png"
+}
+]
 }
