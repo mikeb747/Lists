@@ -1,25 +1,25 @@
-Android App call Lists
+'Lists' - Android App
 
-Feature list
-    Tasks
-      Add task button (+) with task list
-      Long-press on task
-        Edit task
-        Delete task
-        Mark task as complete
-        Move task (Moves to different tab)
-        Archive completed tasks (Moves to archive tab)
-        Delete task
-        Make task a subheading, bold text, useful for a holiday itinerary
-
-   Task Fields (Options when adding a task)
-      Task name
-      Importance rating (1-5)
-      Estimated time/effort (im minutes)
-      Due date
-      Tab category
-      Created date (created automatically)
-      Completed date (created when marked complete)
+    Feature list
+        Tasks
+          Add task button (+) with task list
+          Long-press on task
+            Edit task
+            Delete task
+            Mark task as complete
+            Move task (Moves to different tab)
+            Archive completed tasks (Moves to archive tab)
+            Delete task
+            Make task a subheading, bold text, useful for a holiday itinerary
+    
+       Task Fields (Options when adding a task)
+          Task name
+          Importance rating (1-5)
+          Estimated time/effort (im minutes)
+          Due date
+          Tab category
+          Created date (created automatically)
+          Completed date (created when marked complete)
       
     Tabs
         User Defined, initially just 1 tab and a '+' button 
