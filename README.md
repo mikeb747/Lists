@@ -1,7 +1,23 @@
 'Lists' - Android App
 
-    Feature list
-        Tasks
+Prompt: Build a Progressive Web App (PWA) called Lists.
+The app must be mobile-first and work well on Android phones.
+ 
+TECHNOLOGY
+Plain HTML, CSS, Vanilla JavaScript, No frameworks, Store data using browser local storage (IndexedDB), Installable as a PWA, JS Timers + Notifications
+
+LAYOUT
+ 
+The app should have:
+- Top toolbar (Filters & Settings button)
+- Different Tabs
+- Task list
+- Floating Add Task button at the bottom right corner
+
+
+Feature list:
+        
+    Tasks
           Add task button (+) with task list
           Long-press on task
             Edit task
@@ -10,9 +26,10 @@
             Move task (Moves to different tab)
             Archive completed tasks (Moves to archive tab)
             Delete task
-            Make task a subheading, bold text, useful for a holiday itinerary
-    
-       Task Fields (Options when adding a task)
+            Make task a subheading, bold text, useful for a holiday itinerary (no longer an actual task)
+            Set Reminder (Notification
+
+    Task Fields (Options when adding a task)
           Task name
           Importance rating (1-5)
           Estimated time/effort (im minutes)
@@ -57,8 +74,9 @@
       Manual Order
       Sort by Importance
       Sort by Time
-      Sort by Priority Score
+      Sort by Priority Score, Priority Score = (Importance × Urgency) ÷ Effort
       Quick Wins
+      Due Today
       Due Next 7 Days
 
     Settings button
@@ -71,9 +89,9 @@
       No account required
       No cloud sync
       
-      Data stored entirely on device.
+    Data stored entirely on device.
     
-      User Interface
+    User Interface
         Mobile First Design
         Android friendly
         Responsive layout
@@ -85,7 +103,7 @@
         Floating Add Task button
         Dark Mode (Buttom hidden in settings)
     
-      Notifications
+    Notifications
         Due date reminders
         Data and time set reminders
     
