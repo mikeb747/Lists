@@ -1,0 +1,8 @@
+{
+  "name": "Lists",
+  "description": "Plan tasks by importance, time, and due date with a mobile-first Progressive Web App.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

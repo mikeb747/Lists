@@ -6,7 +6,9 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="description" content="Plan tasks by importance, time, and due date." />
+    <meta name="description" content="Plan tasks by importance, time, and due date with a mobile-first Progressive Web App." />
+    <meta property="og:title" content="Lists" />
+    <meta property="og:description" content="Plan tasks by importance, time, and due date with a mobile-first Progressive Web App." />
     <meta name="theme-color" content="#6750A4" />
     <meta name="color-scheme" content="light dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -33,11 +35,11 @@
               />
             </svg>
           </button>
-          <button type="button" id="btn-theme" class="icon-btn" aria-label="Toggle theme">
+          <button type="button" id="btn-settings" class="icon-btn" aria-label="Settings" title="Settings">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 fill="currentColor"
-                d="M12 22a10 10 0 0 1 0-20 1.5 1.5 0 0 1 .3 3A7 7 0 1 0 19 11.7 1.5 1.5 0 0 1 22 12a10 10 0 0 1-10 10Z"
+                d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6-3.6 3.6-1.62 3.6-3.6 3.6z"
               />
             </svg>
           </button>
@@ -89,13 +91,106 @@
       </form>
     </section>
 
+    <section id="sheet-settings" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="sheet-handle"></div>
+      <h2 id="settings-title">Settings</h2>
+
+      <div class="settings-content">
+        <div class="settings-group">
+          <label class="settings-label">Dark Mode</label>
+          <div class="segmented-control" id="theme-segmented">
+            <button type="button" class="segmented-btn" data-theme-val="system">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14z"/></svg>
+              <span>System</span>
+            </button>
+            <button type="button" class="segmented-btn" data-theme-val="light">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+              <span>Light</span>
+            </button>
+            <button type="button" class="segmented-btn" data-theme-val="dark">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+              <span>Dark</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label class="settings-label">Colour Theme</label>
+          <div class="color-picker-row" id="color-picker">
+            <button type="button" class="color-swatch-btn" data-color="purple" style="--swatch-color: #6750a4;" aria-label="Purple theme" title="Purple (Iris)">
+              <span class="swatch-check">✓</span>
+            </button>
+            <button type="button" class="color-swatch-btn" data-color="blue" style="--swatch-color: #0061a4;" aria-label="Blue theme" title="Blue (Ocean)">
+              <span class="swatch-check">✓</span>
+            </button>
+            <button type="button" class="color-swatch-btn" data-color="teal" style="--swatch-color: #006a60;" aria-label="Teal theme" title="Teal (Emerald)">
+              <span class="swatch-check">✓</span>
+            </button>
+            <button type="button" class="color-swatch-btn" data-color="green" style="--swatch-color: #386a20;" aria-label="Green theme" title="Green (Botanical)">
+              <span class="swatch-check">✓</span>
+            </button>
+            <button type="button" class="color-swatch-btn" data-color="orange" style="--swatch-color: #8b5000;" aria-label="Orange theme" title="Orange (Sunset)">
+              <span class="swatch-check">✓</span>
+            </button>
+            <button type="button" class="color-swatch-btn" data-color="rose" style="--swatch-color: #984061;" aria-label="Rose theme" title="Rose (Berry)">
+              <span class="swatch-check">✓</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label class="settings-label">Roadmap &amp; Specifications</label>
+          <button type="button" id="btn-open-tracker" class="settings-item-btn">
+            <div class="settings-item-left">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <div class="settings-item-text">
+                <span class="settings-item-title">Implementation Tracker</span>
+                <span class="settings-item-subtitle" id="settings-tracker-badge">View feature progress</span>
+              </div>
+            </div>
+            <svg viewBox="0 0 24 24" width="20" height="20" class="chevron-icon" aria-hidden="true">
+              <path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="settings-group">
+          <label class="settings-label">Data Storage</label>
+          <p class="settings-hint">Data is stored locally on this device in browser IndexedDB.</p>
+          <div class="settings-actions-row">
+            <button type="button" id="btn-export-data" class="btn-text-outlined">Export JSON</button>
+            <button type="button" id="btn-import-data" class="btn-text-outlined">Import JSON</button>
+            <input type="file" id="file-import-data" accept=".json" hidden />
+          </div>
+        </div>
+
+        <div class="settings-footer">
+          <span class="settings-version">Lists v1.2.0 • Offline PWA</span>
+        </div>
+      </div>
+    </section>
+
     <section id="sheet-task-actions" class="sheet" role="dialog" aria-labelledby="task-actions-title" hidden>
       <div class="sheet-handle"></div>
       <h2 id="task-actions-title">Task</h2>
       <div class="action-list">
         <button type="button" data-action="edit">Edit</button>
+        <button type="button" data-action="move" id="action-move-task">Move task</button>
+        <button type="button" data-action="toggle-subheading" id="action-toggle-subheading">Toggle subheading</button>
         <button type="button" data-action="complete">Complete</button>
         <button type="button" data-action="delete" class="danger">Delete</button>
+      </div>
+    </section>
+
+    <section id="sheet-move-task" class="sheet" role="dialog" aria-modal="true" aria-labelledby="move-task-title" hidden>
+      <div class="sheet-handle"></div>
+      <h2 id="move-task-title">Move to Tab</h2>
+      <p class="sheet-note" id="move-task-desc">Select a destination tab</p>
+      <div id="move-tab-list" class="move-tab-list"></div>
+      <div class="dialog-actions" style="margin-top: 16px;">
+        <button type="button" id="move-task-cancel" class="btn-text">Cancel</button>
       </div>
     </section>
 
@@ -115,19 +210,25 @@
           Name
           <input type="text" name="name" required maxlength="120" autocomplete="off" />
         </label>
-        <label>
-          Importance
-          <input type="range" name="importance" min="1" max="5" step="1" value="3" />
-          <span id="importance-value" class="hint">3</span>
+        <label class="choice switch-row">
+          <span>Make this a subheading (section header)</span>
+          <input type="checkbox" name="isSubheading" id="task-is-subheading" />
         </label>
-        <label>
-          Estimated time (hours)
-          <input type="number" name="estimatedTime" min="0.25" max="80" step="0.25" value="1" required />
-        </label>
-        <label>
-          Due date
-          <input type="date" name="dueDate" />
-        </label>
+        <div id="task-meta-fields">
+          <label>
+            Importance
+            <input type="range" name="importance" min="1" max="5" step="1" value="3" />
+            <span id="importance-value" class="hint">3</span>
+          </label>
+          <label>
+            Estimated time (hours)
+            <input type="number" name="estimatedTime" min="0.25" max="80" step="0.25" value="1" required />
+          </label>
+          <label>
+            Due date
+            <input type="date" name="dueDate" />
+          </label>
+        </div>
         <label>
           Category
           <select name="categoryId"></select>
@@ -159,6 +260,41 @@
       <div class="dialog-actions">
         <button type="button" id="confirm-cancel" class="btn-text">Cancel</button>
         <button type="button" id="confirm-ok" class="btn-filled danger">Delete</button>
+      </div>
+    </section>
+
+    <section id="dialog-tracker" class="dialog dialog-wide" role="dialog" aria-labelledby="tracker-title" hidden>
+      <div class="tracker-header">
+        <div>
+          <h2 id="tracker-title">Implementation Tracker</h2>
+          <p class="tracker-subtitle">Real-time status based on README.md specification</p>
+        </div>
+        <button type="button" id="tracker-close-icon" class="icon-btn" aria-label="Close tracker">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+
+      <div class="tracker-stats-card">
+        <div class="tracker-stats-row">
+          <span id="tracker-summary-text" class="tracker-summary-text">25 of 44 features complete</span>
+          <span id="tracker-summary-percent" class="tracker-summary-percent">57%</span>
+        </div>
+        <div class="tracker-progress-track">
+          <div id="tracker-progress-bar" class="tracker-progress-fill" style="width: 57%"></div>
+        </div>
+      </div>
+
+      <div class="tracker-filter-bar">
+        <button type="button" class="tracker-filter-btn active" data-filter="all">All (44)</button>
+        <button type="button" class="tracker-filter-btn" data-filter="done">Implemented (25)</button>
+        <button type="button" class="tracker-filter-btn" data-filter="partial">Partial (5)</button>
+        <button type="button" class="tracker-filter-btn" data-filter="todo">To Do (14)</button>
+      </div>
+
+      <div id="tracker-content-list" class="tracker-content-list"></div>
+
+      <div class="dialog-actions">
+        <button type="button" id="tracker-close" class="btn-filled">Close</button>
       </div>
     </section>
 

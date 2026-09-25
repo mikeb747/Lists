@@ -34,7 +34,26 @@
     confirmTitle: document.getElementById("confirm-title"),
     confirmMessage: document.getElementById("confirm-message"),
     confirmOk: document.getElementById("confirm-ok"),
-    themeBtn: document.getElementById("btn-theme"),
+    settingsBtn: document.getElementById("btn-settings"),
+    settingsSheet: document.getElementById("sheet-settings"),
+    openTrackerBtn: document.getElementById("btn-open-tracker"),
+    settingsTrackerBadge: document.getElementById("settings-tracker-badge"),
+    exportBtn: document.getElementById("btn-export-data"),
+    importBtn: document.getElementById("btn-import-data"),
+    importFile: document.getElementById("file-import-data"),
+    themeSegmented: document.getElementById("theme-segmented"),
+    colorPicker: document.getElementById("color-picker"),
+    moveSheet: document.getElementById("sheet-move-task"),
+    moveTabList: document.getElementById("move-tab-list"),
+    moveTaskDesc: document.getElementById("move-task-desc"),
+    moveTaskCancel: document.getElementById("move-task-cancel"),
+    trackerDialog: document.getElementById("dialog-tracker"),
+    trackerClose: document.getElementById("tracker-close"),
+    trackerCloseIcon: document.getElementById("tracker-close-icon"),
+    trackerList: document.getElementById("tracker-content-list"),
+    trackerProgressBar: document.getElementById("tracker-progress-bar"),
+    trackerSummaryText: document.getElementById("tracker-summary-text"),
+    trackerSummaryPercent: document.getElementById("tracker-summary-percent"),
   };
 
   const state = {
@@ -45,12 +64,14 @@
       sortMode: "manual",
       hideCompleted: true,
       theme: "system",
+      colorTheme: "purple",
       activeTab: "all",
     },
     editingTaskId: null,
     editingCategoryId: null,
     actionTaskId: null,
     actionCategoryId: null,
+    movingTaskId: null,
     confirmHandler: null,
     drag: null,
   };
@@ -148,16 +169,25 @@
     return state.categories.find((category) => category.id === id)?.name || "Uncategorized";
   }
 
+  const THEME_HEADER_COLORS = {
+    purple: "#6750a4",
+    blue: "#0061a4",
+    teal: "#006a60",
+    green: "#386a20",
+    orange: "#8b5000",
+    rose: "#984061",
+  };
+
   function applyTheme() {
     const theme = state.settings.theme;
     const dark =
       theme === "dark" ||
       (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    document.querySelector('meta[name="theme-color"]')?.setAttribute(
-      "content",
-      dark ? "#1c1b1f" : "#6750A4"
-    );
+    const colorKey = state.settings.colorTheme || "purple";
+    document.documentElement.dataset.color = colorKey;
+    const headerColor = dark ? "#1c1b1f" : (THEME_HEADER_COLORS[colorKey] || "#6750a4");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", headerColor);
   }
 
   function visibleTasks() {
@@ -165,35 +195,35 @@
     let tasks = [...state.tasks];
 
     if (activeTab === "archive") {
-      tasks = tasks.filter((task) => task.completed);
+      tasks = tasks.filter((task) => task.completed && !task.isSubheading);
     } else {
       if (activeTab !== "all") {
         tasks = tasks.filter((task) => task.categoryId === activeTab);
       }
       if (hideCompleted) {
-        tasks = tasks.filter((task) => !task.completed);
+        tasks = tasks.filter((task) => task.isSubheading || !task.completed);
       }
     }
 
     if (sortMode === "quickWins") {
       tasks = tasks.filter(
-        (task) => Number(task.importance) >= 4 && Number(task.estimatedTime) <= 2
+        (task) => !task.isSubheading && Number(task.importance) >= 4 && Number(task.estimatedTime) <= 2
       );
     }
 
     if (sortMode === "due7") {
       const start = todayISO();
       const end = addDaysISO(7);
-      tasks = tasks.filter((task) => task.dueDate && task.dueDate >= start && task.dueDate <= end);
+      tasks = tasks.filter((task) => !task.isSubheading && task.dueDate && task.dueDate >= start && task.dueDate <= end);
     }
 
     const byManual = (a, b) => a.sortPosition - b.sortPosition;
     if (sortMode === "manual") {
       tasks.sort(byManual);
     } else if (sortMode === "importance") {
-      tasks.sort((a, b) => b.importance - a.importance || byManual(a, b));
+      tasks.sort((a, b) => (b.isSubheading ? -1 : a.isSubheading ? 1 : b.importance - a.importance || byManual(a, b)));
     } else if (sortMode === "time") {
-      tasks.sort((a, b) => a.estimatedTime - b.estimatedTime || byManual(a, b));
+      tasks.sort((a, b) => (b.isSubheading ? -1 : a.isSubheading ? 1 : a.estimatedTime - b.estimatedTime || byManual(a, b)));
     } else if (sortMode === "quickWins") {
       tasks.sort((a, b) => b.importance - a.importance || a.estimatedTime - b.estimatedTime || byManual(a, b));
     } else if (sortMode === "due7") {
@@ -254,6 +284,18 @@
   }
 
   function taskCard(task, manual) {
+    if (task.isSubheading) {
+      return `
+      <article class="task-card subheading" data-id="${task.id}" data-is-subheading="true">
+        <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
+        </button>
+        <div class="task-body">
+          <p class="task-name subheading-title">${escapeHtml(task.name)}</p>
+        </div>
+      </article>`;
+    }
+
     const due = task.dueDate
       ? `<span class="chip${task.dueDate < todayISO() && !task.completed ? " overdue" : ""}">${escapeHtml(
           task.dueDate
@@ -288,6 +330,7 @@
     renderTabs();
     renderTasks();
     syncFilterSheet();
+    syncSettingsSheet();
   }
 
   function syncFilterSheet() {
@@ -296,6 +339,70 @@
     );
     if (radio) radio.checked = true;
     els.hideCompleted.checked = Boolean(state.settings.hideCompleted);
+  }
+
+  function syncSettingsSheet() {
+    const activeTheme = state.settings.theme || "system";
+    document.querySelectorAll(".segmented-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.themeVal === activeTheme);
+    });
+
+    const activeColor = state.settings.colorTheme || "purple";
+    document.querySelectorAll(".color-swatch-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.color === activeColor);
+    });
+
+    if (els.settingsTrackerBadge) {
+      const total = FEATURES.length;
+      const doneCount = FEATURES.filter((f) => f.status === "done").length;
+      const percent = Math.round((doneCount / total) * 100);
+      els.settingsTrackerBadge.textContent = `${doneCount} of ${total} features complete (${percent}%)`;
+    }
+  }
+
+  function exportData() {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      tasks: state.tasks,
+      categories: state.categories,
+      settings: state.settings,
+    };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lists-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importData(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data || !Array.isArray(data.tasks)) return;
+      for (const task of data.tasks) {
+        await put("tasks", task);
+      }
+      if (Array.isArray(data.categories)) {
+        for (const cat of data.categories) {
+          await put("categories", cat);
+        }
+      }
+      if (data.settings) {
+        state.settings = { ...state.settings, ...data.settings };
+        await saveSettings();
+      }
+      await loadAll();
+      applyTheme();
+      render();
+      closeOverlays();
+    } catch (err) {
+      console.warn("Failed to restore backup:", err);
+    }
   }
 
   function openOverlay(el) {
@@ -312,7 +419,37 @@
     els.taskDialog.hidden = true;
     els.categoryDialog.hidden = true;
     els.confirmDialog.hidden = true;
+    if (els.settingsSheet) els.settingsSheet.hidden = true;
+    if (els.moveSheet) els.moveSheet.hidden = true;
+    if (els.trackerDialog) els.trackerDialog.hidden = true;
     state.confirmHandler = null;
+  }
+
+  function openMoveTaskSheet(task) {
+    if (!task) return;
+    state.movingTaskId = task.id;
+    if (els.moveTaskDesc) {
+      els.moveTaskDesc.textContent = `Move “${task.name}” to:`;
+    }
+
+    const items = [
+      { id: "", name: "Uncategorized" },
+      ...state.categories,
+    ];
+
+    els.moveTabList.innerHTML = items
+      .map((cat) => {
+        const isCurrent = (task.categoryId || "") === cat.id;
+        return `
+          <button type="button" class="move-tab-item${isCurrent ? " active" : ""}" data-move-id="${cat.id}">
+            <span>${escapeHtml(cat.name)}</span>
+            ${isCurrent ? `<span class="move-tab-check">Current</span>` : ""}
+          </button>
+        `;
+      })
+      .join("");
+
+    openOverlay(els.moveSheet);
   }
 
   function fillCategorySelect(selectedId) {
@@ -328,21 +465,37 @@
     select.innerHTML = options.join("");
   }
 
+  function updateSubheadingUI() {
+    const isSub = Boolean(els.taskForm.elements.isSubheading?.checked);
+    const metaBox = document.getElementById("task-meta-fields");
+    if (metaBox) metaBox.hidden = isSub;
+    if (els.taskForm.elements.estimatedTime) {
+      els.taskForm.elements.estimatedTime.required = !isSub;
+    }
+    els.taskTitle.textContent = isSub
+      ? (state.editingTaskId ? "Edit subheading" : "Add subheading")
+      : (state.editingTaskId ? "Edit task" : "Add task");
+  }
+
   function openTaskDialog(task) {
     state.editingTaskId = task?.id || null;
-    els.taskTitle.textContent = task ? "Edit task" : "Add task";
     els.taskForm.reset();
     fillCategorySelect(task?.categoryId || (state.settings.activeTab !== "all" && state.settings.activeTab !== "archive"
       ? state.settings.activeTab
       : ""));
+    const isSub = Boolean(task?.isSubheading);
+    if (els.taskForm.elements.isSubheading) {
+      els.taskForm.elements.isSubheading.checked = isSub;
+    }
     if (task) {
       els.taskForm.elements.name.value = task.name;
-      els.taskForm.elements.importance.value = task.importance;
-      els.taskForm.elements.estimatedTime.value = task.estimatedTime;
+      els.taskForm.elements.importance.value = task.importance ?? 3;
+      els.taskForm.elements.estimatedTime.value = task.estimatedTime ?? 1;
       els.taskForm.elements.dueDate.value = task.dueDate || "";
       els.taskForm.elements.categoryId.value = task.categoryId || "";
     }
     els.importanceValue.textContent = els.taskForm.elements.importance.value;
+    updateSubheadingUI();
     openOverlay(els.taskDialog);
     els.taskForm.elements.name.focus();
   }
@@ -430,10 +583,20 @@
   }
 
   function setupDrag() {
+    let previewEl = null;
+    let dragOffsetY = 0;
+    let dragOffsetX = 0;
+
     const onMove = (event) => {
       if (!state.drag) return;
       const dragging = els.list.querySelector(".task-card.dragging");
       if (!dragging) return;
+
+      if (previewEl) {
+        previewEl.style.top = `${event.clientY - dragOffsetY}px`;
+        previewEl.style.left = `${event.clientX - dragOffsetX}px`;
+      }
+
       const y = event.clientY;
       const others = [...els.list.querySelectorAll(".task-card:not(.dragging)")];
       for (const card of others) {
@@ -453,8 +616,17 @@
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", endDrag);
       document.removeEventListener("pointercancel", endDrag);
+
+      if (previewEl) {
+        previewEl.remove();
+        previewEl = null;
+      }
+
       const dragging = els.list.querySelector(".task-card.dragging");
-      if (dragging) dragging.classList.remove("dragging");
+      if (dragging) {
+        dragging.classList.remove("dragging");
+        dragging.classList.remove("drag-placeholder");
+      }
       const ids = [...els.list.querySelectorAll(".task-card")].map((card) => card.dataset.id);
       state.drag = null;
       await applyManualOrder(ids);
@@ -467,27 +639,247 @@
       const card = handle.closest(".task-card");
       if (!card) return;
       event.preventDefault();
+
+      const rect = card.getBoundingClientRect();
+      dragOffsetY = event.clientY - rect.top;
+      dragOffsetX = event.clientX - rect.left;
+
+      previewEl = card.cloneNode(true);
+      previewEl.classList.add("drag-ghost-preview");
+      previewEl.classList.remove("dragging");
+      previewEl.style.width = `${rect.width}px`;
+      previewEl.style.height = `${rect.height}px`;
+      previewEl.style.top = `${rect.top}px`;
+      previewEl.style.left = `${rect.left}px`;
+      document.body.appendChild(previewEl);
+
       state.drag = { id: card.dataset.id };
-      card.classList.add("dragging");
+      card.classList.add("dragging", "drag-placeholder");
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", endDrag);
       document.addEventListener("pointercancel", endDrag);
     });
   }
 
+  const FEATURES = [
+    // 1. Tasks
+    { section: "Tasks", name: "Add task button (+) with task list", status: "done", desc: "FAB button opens task creation dialog, persists to IndexedDB, renders responsive cards in the list." },
+    { section: "Tasks", name: "Long-press on task", status: "done", desc: "Long-press (520ms hold) opens bottom action sheet on touch and pointer devices." },
+    { section: "Tasks", name: "Edit task", status: "done", desc: "Edit action opens prefilled dialog to update task name, importance, time, due date, category." },
+    { section: "Tasks", name: "Delete task", status: "done", desc: "Confirmation modal safeguards against accidental deletion; removes task from IndexedDB." },
+    { section: "Tasks", name: "Mark task as complete", status: "done", desc: "Checkbox toggle marks task complete with visual strike-through styling." },
+    { section: "Tasks", name: "Move task (Moves to different tab)", status: "done", desc: "Click and hold on task opens action sheet with 'Move task' to move immediately to another existing tab." },
+    { section: "Tasks", name: "Archive completed tasks", status: "partial", desc: "Archive tab automatically shows completed tasks; manual batch 'Archive all' action is pending." },
+    { section: "Tasks", name: "Make task a subheading / bold text", status: "done", desc: "Subheading support: bold section title with no checkbox or priority metadata chips; reorderable for itineraries." },
+    { section: "Tasks", name: "Set Reminder (Notification)", status: "todo", desc: "Web Notifications API integration and timed alarm reminder triggers." },
+
+    // 2. Task Fields
+    { section: "Task Fields", name: "Task name", status: "done", desc: "Text input with 120 character limit and required validation." },
+    { section: "Task Fields", name: "Importance rating (1-5)", status: "done", desc: "Slider with live numeric value feedback and high-importance badges." },
+    { section: "Task Fields", name: "Estimated time/effort", status: "partial", desc: "Currently configured in hours; spec specifies minutes (in minutes)." },
+    { section: "Task Fields", name: "Due date", status: "done", desc: "Date picker with overdue highlight indicator chip." },
+    { section: "Task Fields", name: "Tab category", status: "done", desc: "Category dropdown linked to user-defined tabs or Uncategorized." },
+    { section: "Task Fields", name: "Created date (automatic)", status: "todo", desc: "Automatic ISO timestamp recorded upon task creation." },
+    { section: "Task Fields", name: "Completed date (automatic)", status: "todo", desc: "Automatic ISO timestamp recorded when marked complete." },
+
+    // 3. Tabs
+    { section: "Tabs", name: "User Defined (+ button)", status: "partial", desc: "User tabs can be added with '+'; app currently seeds 2 tabs instead of 1." },
+    { section: "Tabs", name: "Tabs can be names or Emojis", status: "done", desc: "Full UTF-8 emoji and text string support for tab titles." },
+    { section: "Tabs", name: "Long-press on tabs", status: "done", desc: "Long-pressing user tabs triggers category action sheet for rename/delete." },
+    { section: "Tabs", name: "Rename tab", status: "done", desc: "Category dialog renames tab and updates associations in real time." },
+    { section: "Tabs", name: "Delete tab", status: "done", desc: "Safe delete confirmation; reassigns associated tasks to Uncategorized." },
+    { section: "Tabs", name: "Change tab background colour", status: "todo", desc: "Color picker palette to assign custom tab colors." },
+    { section: "Tabs", name: "Tab Examples", status: "todo", desc: "Quick-add presets for Home, Work, Shopping List, Packing List, Holiday Itinerary, etc." },
+
+    // 4. Ordering
+    { section: "Ordering", name: "Manual Ordering", status: "done", desc: "Preserves custom order using numeric sort positions." },
+    { section: "Ordering", name: "Drag and drop tasks", status: "done", desc: "Smooth touch/pointer drag reordering with handle." },
+    { section: "Ordering", name: "Save custom order", status: "done", desc: "Persists reordered positions to IndexedDB immediately." },
+    { section: "Ordering", name: "Order persists after app restart", status: "done", desc: "Reloads exact saved manual ordering from local storage." },
+    { section: "Ordering", name: "Automatic Sorting", status: "done", desc: "Sort by importance, estimated time, and quick wins." },
+    { section: "Ordering", name: "Sort by Importance", status: "done", desc: "High-to-low priority sort option in filter sheet." },
+    { section: "Ordering", name: "Sort by Time", status: "done", desc: "Ascending time/effort sort option in filter sheet." },
+    { section: "Ordering", name: "Sort by Priority Score", status: "todo", desc: "Formula: (Importance × Urgency) ÷ Effort calculation." },
+
+    // 5. Filters button
+    { section: "Filters Button", name: "Manual Order", status: "done", desc: "Restores manual drag-and-drop order." },
+    { section: "Filters Button", name: "Sort by Importance", status: "done", desc: "Available in Sort & Filters sheet." },
+    { section: "Filters Button", name: "Sort by Time", status: "done", desc: "Available in Sort & Filters sheet." },
+    { section: "Filters Button", name: "Sort by Priority Score", status: "todo", desc: "Missing from filter sheet choices." },
+    { section: "Filters Button", name: "Quick Wins", status: "done", desc: "Filters high importance (4-5) and short duration (<= 2h)." },
+    { section: "Filters Button", name: "Due Today", status: "todo", desc: "Dedicated filter for tasks due on today's date." },
+    { section: "Filters Button", name: "Due Next 7 Days", status: "done", desc: "Filters tasks due in the upcoming week." },
+
+    // 6. Settings button
+    { section: "Settings Button", name: "Settings Area / Modal", status: "done", desc: "Settings pane with dark mode switch, 6 colour themes, JSON backup & restore, version info." },
+
+    // 7. Data Storage
+    { section: "Data Storage", name: "Local Storage / IndexedDB", status: "done", desc: "IndexedDB database 'priority-planner' with 3 stores." },
+    { section: "Data Storage", name: "No backend required", status: "done", desc: "100% client-side offline execution." },
+    { section: "Data Storage", name: "No account required", status: "done", desc: "Zero authentication friction; works immediately." },
+    { section: "Data Storage", name: "No cloud sync", status: "done", desc: "All data stays private and stored locally on the device." },
+    { section: "Data Storage", name: "Data stored entirely on device", status: "done", desc: "Confirmed local-only storage." },
+
+    // 8. User Interface
+    { section: "User Interface", name: "Mobile First Design", status: "done", desc: "Single-hand friendly layout with bottom sheets and thumb zones." },
+    { section: "User Interface", name: "Android Friendly", status: "done", desc: "MD3 design tokens, ripple-friendly targets, viewport-fit." },
+    { section: "User Interface", name: "Responsive Layout", status: "done", desc: "Clean centered layout supporting mobile, tablet, and desktop." },
+    { section: "User Interface", name: "Large Touch Targets", status: "done", desc: "Minimum 44px-48px touch targets for touch accuracy." },
+    { section: "User Interface", name: "Modern Material Design styling", status: "done", desc: "Rounded cards, MD3 color system, FAB, elevation." },
+    { section: "User Interface", name: "Dark Mode in Settings", status: "done", desc: "Dark mode switch placed cleanly in Settings pane with System, Light, and Dark options." },
+
+    // 9. Notifications
+    { section: "Notifications", name: "Due date reminders", status: "todo", desc: "In-app or system notifications when a task is due." },
+    { section: "Notifications", name: "Date and time set reminders", status: "todo", desc: "Custom scheduled alarms for specific task dates and times." },
+
+    // 10. Progressive Web App
+    { section: "PWA", name: "Installation", status: "done", desc: "PWA installable banner and offline service worker." },
+    { section: "PWA", name: "Web Server / Hosting", status: "done", desc: "Static Node.js Express server configured on port 3000." },
+    { section: "PWA", name: "Runs like an app / Home screen icon", status: "done", desc: "Configured with standalone display mode." },
+    { section: "PWA", name: "PWA Components (manifest, sw, icons)", status: "done", desc: "Complete manifest.json, sw.js cache, and 192/512 icons." },
+  ];
+
+  function renderTracker(filter = "all") {
+    if (!els.trackerList) return;
+    const total = FEATURES.length;
+    const doneCount = FEATURES.filter((f) => f.status === "done").length;
+    const partialCount = FEATURES.filter((f) => f.status === "partial").length;
+    const todoCount = FEATURES.filter((f) => f.status === "todo").length;
+    const percent = Math.round((doneCount / total) * 100);
+
+    if (els.trackerSummaryText) {
+      els.trackerSummaryText.textContent = `${doneCount} of ${total} features complete (${partialCount} in progress)`;
+    }
+    if (els.trackerSummaryPercent) {
+      els.trackerSummaryPercent.textContent = `${percent}%`;
+    }
+    if (els.trackerProgressBar) {
+      els.trackerProgressBar.style.width = `${percent}%`;
+    }
+
+    const filtered = filter === "all" ? FEATURES : FEATURES.filter((f) => f.status === filter);
+
+    const sections = {};
+    for (const item of filtered) {
+      if (!sections[item.section]) sections[item.section] = [];
+      sections[item.section].push(item);
+    }
+
+    const labels = {
+      done: "Implemented",
+      partial: "Partial",
+      todo: "To Do",
+    };
+
+    const pillClasses = {
+      done: "pill-done",
+      partial: "pill-partial",
+      todo: "pill-todo",
+    };
+
+    const cardClasses = {
+      done: "is-done",
+      partial: "is-partial",
+      todo: "is-todo",
+    };
+
+    let html = "";
+    for (const [sec, items] of Object.entries(sections)) {
+      html += `<div class="tracker-section-title">${escapeHtml(sec)} (${items.length})</div>`;
+      for (const item of items) {
+        html += `
+          <div class="tracker-card ${cardClasses[item.status]}">
+            <div class="tracker-card-header">
+              <h4 class="tracker-card-name">${escapeHtml(item.name)}</h4>
+              <span class="tracker-pill ${pillClasses[item.status]}">${labels[item.status]}</span>
+            </div>
+            <p class="tracker-card-desc">${escapeHtml(item.desc)}</p>
+          </div>
+        `;
+      }
+    }
+
+    if (!filtered.length) {
+      html = `<div class="empty-state"><h2>No features found</h2><p>No features match the selected filter.</p></div>`;
+    }
+
+    els.trackerList.innerHTML = html;
+  }
+
+  function openTracker() {
+    renderTracker("all");
+    document.querySelectorAll(".tracker-filter-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.filter === "all");
+    });
+    openOverlay(els.trackerDialog);
+  }
+
   function setupEvents() {
+    if (els.trackerBtn) {
+      els.trackerBtn.addEventListener("click", openTracker);
+    }
+    if (els.trackerClose) {
+      els.trackerClose.addEventListener("click", closeOverlays);
+    }
+    if (els.trackerCloseIcon) {
+      els.trackerCloseIcon.addEventListener("click", closeOverlays);
+    }
+    if (els.openTrackerBtn) {
+      els.openTrackerBtn.addEventListener("click", () => {
+        closeOverlays();
+        openTracker();
+      });
+    }
+
+    document.querySelectorAll(".tracker-filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tracker-filter-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderTracker(btn.dataset.filter);
+      });
+    });
+
     document.getElementById("btn-filter").addEventListener("click", () => {
       syncFilterSheet();
       openOverlay(els.filterSheet);
     });
 
-    els.themeBtn.addEventListener("click", async () => {
-      const order = ["system", "light", "dark"];
-      const next = order[(order.indexOf(state.settings.theme) + 1) % order.length];
-      state.settings.theme = next;
-      await saveSettings();
-      render();
+    if (els.settingsBtn) {
+      els.settingsBtn.addEventListener("click", () => {
+        syncSettingsSheet();
+        openOverlay(els.settingsSheet);
+      });
+    }
+
+    document.querySelectorAll(".segmented-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        state.settings.theme = btn.dataset.themeVal;
+        await saveSettings();
+        applyTheme();
+        syncSettingsSheet();
+      });
     });
+
+    document.querySelectorAll(".color-swatch-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        state.settings.colorTheme = btn.dataset.color;
+        await saveSettings();
+        applyTheme();
+        syncSettingsSheet();
+      });
+    });
+
+    if (els.exportBtn) {
+      els.exportBtn.addEventListener("click", exportData);
+    }
+
+    if (els.importBtn && els.importFile) {
+      els.importBtn.addEventListener("click", () => els.importFile.click());
+      els.importFile.addEventListener("change", (e) => {
+        const file = e.target.files?.[0];
+        if (file) importData(file);
+      });
+    }
 
     els.scrim.addEventListener("click", closeOverlays);
 
@@ -522,9 +914,17 @@
       if (event.target.closest(".drag-handle") || event.target.closest(".task-complete")) return;
       state.actionTaskId = card.dataset.id;
       const task = state.tasks.find((item) => item.id === state.actionTaskId);
-      document.getElementById("task-actions-title").textContent = task?.name || "Task";
+      const isSub = Boolean(task?.isSubheading);
+      document.getElementById("task-actions-title").textContent = isSub ? "Subheading" : (task?.name || "Task");
       const completeBtn = els.taskActions.querySelector("[data-action='complete']");
-      completeBtn.textContent = task?.completed ? "Move back to list" : "Complete";
+      if (completeBtn) {
+        completeBtn.hidden = isSub;
+        completeBtn.textContent = task?.completed ? "Move back to list" : "Complete";
+      }
+      const toggleSubBtn = els.taskActions.querySelector("[data-action='toggle-subheading']");
+      if (toggleSubBtn) {
+        toggleSubBtn.textContent = isSub ? "Convert to regular task" : "Convert to subheading";
+      }
       openOverlay(els.taskActions);
     });
 
@@ -532,11 +932,13 @@
       const complete = event.target.closest("[data-complete]");
       if (!complete) return;
       const task = state.tasks.find((item) => item.id === complete.dataset.complete);
-      if (!task) return;
+      if (!task || task.isSubheading) return;
       await toggleComplete(task);
     });
 
     els.fab.addEventListener("click", () => openTaskDialog(null));
+
+    els.taskForm.elements.isSubheading?.addEventListener("change", updateSubheadingUI);
 
     els.taskForm.elements.importance.addEventListener("input", () => {
       els.importanceValue.textContent = els.taskForm.elements.importance.value;
@@ -545,12 +947,14 @@
     els.taskForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const data = new FormData(els.taskForm);
+      const isSubheading = Boolean(els.taskForm.elements.isSubheading?.checked);
       const payload = {
         name: String(data.get("name") || "").trim(),
-        importance: Number(data.get("importance")),
-        estimatedTime: Number(data.get("estimatedTime")),
-        dueDate: String(data.get("dueDate") || ""),
+        importance: isSubheading ? 3 : Number(data.get("importance") || 3),
+        estimatedTime: isSubheading ? 0 : Number(data.get("estimatedTime") || 1),
+        dueDate: isSubheading ? "" : String(data.get("dueDate") || ""),
         categoryId: String(data.get("categoryId") || ""),
+        isSubheading,
       };
       if (!payload.name) return;
       if (state.editingTaskId) {
@@ -599,6 +1003,14 @@
       if (action === "edit") {
         closeOverlays();
         openTaskDialog(task);
+      } else if (action === "move") {
+        closeOverlays();
+        openMoveTaskSheet(task);
+      } else if (action === "toggle-subheading") {
+        closeOverlays();
+        await put("tasks", { ...task, isSubheading: !task.isSubheading });
+        state.tasks = await getAll("tasks");
+        render();
       } else if (action === "complete") {
         closeOverlays();
         await toggleComplete(task);
@@ -615,6 +1027,26 @@
         });
       }
     });
+
+    if (els.moveTabList) {
+      els.moveTabList.addEventListener("click", async (event) => {
+        const item = event.target.closest("[data-move-id]");
+        if (!item) return;
+        const targetCatId = item.dataset.moveId;
+        const task = state.tasks.find((t) => t.id === state.movingTaskId);
+        if (task) {
+          task.categoryId = targetCatId;
+          await put("tasks", task);
+          state.tasks = await getAll("tasks");
+          closeOverlays();
+          render();
+        }
+      });
+    }
+
+    if (els.moveTaskCancel) {
+      els.moveTaskCancel.addEventListener("click", closeOverlays);
+    }
 
     els.categoryActions.addEventListener("click", (event) => {
       const action = event.target.closest("[data-action]")?.dataset.action;
