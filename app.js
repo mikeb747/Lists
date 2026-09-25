@@ -60,6 +60,7 @@ const MOVE_CANCEL_PX = 10;
     moveTaskCancel: document.getElementById("move-task-cancel"),
     installBtn: document.getElementById("install-app-btn"),
     installBar: document.getElementById("install-bar"),
+    dismissInstallBtn: document.getElementById("btn-dismiss-install"),
     settingsInstallBtn: document.getElementById("btn-settings-install"),
     settingsInstallTitle: document.getElementById("settings-install-title"),
     settingsInstallStatus: document.getElementById("settings-install-status"),
@@ -387,16 +388,19 @@ const MOVE_CANCEL_PX = 10;
   function taskCard(task, manual, isCompact = false) {
     if (task.isSubheading) {
       return `
-      <article class="task-card subheading" data-id="${task.id}" data-is-subheading="true">
-        <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
-          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
-        </button>
-        <div class="task-body">
-          <p class="task-name subheading-title">${escapeHtml(task.name)}</p>
-        </div>
-      </article>`;
+      <div class="task-item-wrapper" data-id="${task.id}">
+        <article class="task-card subheading" data-id="${task.id}" data-is-subheading="true">
+          <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
+          </button>
+          <div class="task-body">
+            <p class="task-name subheading-title">${escapeHtml(task.name)}</p>
+          </div>
+        </article>
+      </div>`;
     }
 
+    const isArchive = state.settings.activeTab === "archive";
     const due = task.dueDate
       ? `<span class="chip task-chip-due${task.dueDate < todayISO() && !task.completed ? " overdue" : ""}">${escapeHtml(
           task.dueDate
@@ -409,28 +413,65 @@ const MOVE_CANCEL_PX = 10;
     const checkClass = task.completed ? " done" : "";
     const compactClass = isCompact ? " compact" : "";
 
-    return `
-      <article class="task-card${doneClass}${compactClass}" data-id="${task.id}">
-        <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
-          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
-        </button>
-        <div class="task-body">
-          <p class="task-name">${escapeHtml(task.name)}</p>
-          ${!isCompact ? `
-          <div class="task-meta">
-            <span class="chip task-chip-importance${task.importance >= 4 ? " importance-high" : ""}">Importance ${task.importance}</span>
-            <span class="chip task-chip-time">${task.estimatedTime}h</span>
-            ${due}
-            ${reminderBadge}
-            <span class="chip task-chip-category">${escapeHtml(categoryName(task.categoryId))}</span>
-          </div>` : ""}
+    let rightControls = "";
+    if (isArchive) {
+      // In Archive tab: delete and undo icons instead of tick icon
+      rightControls = `
+        <div class="task-actions-group">
+          <button type="button" class="task-icon-btn btn-archive-undo" data-undo="${task.id}" aria-label="Undo completion" title="Restore task">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+          </button>
+          <button type="button" class="task-icon-btn btn-archive-delete" data-delete="${task.id}" aria-label="Delete task" title="Delete task permanently">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
         </div>
+      `;
+    } else {
+      // In regular tabs: standard complete checkbox button
+      rightControls = `
         <button type="button" class="task-complete${checkClass}" data-complete="${task.id}" aria-label="${
           task.completed ? "Mark incomplete" : "Mark complete"
         }">
           <svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
         </button>
-      </article>`;
+      `;
+    }
+
+    return `
+      <div class="task-item-wrapper" data-id="${task.id}">
+        <!-- Swipe right: Green Complete tick -->
+        <div class="swipe-action-cue cue-complete">
+          <span class="swipe-cue-icon">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+            <span>Complete</span>
+          </span>
+        </div>
+        <!-- Swipe left: Red Trash bin -->
+        <div class="swipe-action-cue cue-delete">
+          <span class="swipe-cue-icon">
+            <span>Delete</span>
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </span>
+        </div>
+        <!-- Foreground Card -->
+        <article class="task-card${doneClass}${compactClass}" data-id="${task.id}">
+          <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
+          </button>
+          <div class="task-body">
+            <p class="task-name">${escapeHtml(task.name)}</p>
+            ${!isCompact ? `
+            <div class="task-meta">
+              <span class="chip task-chip-importance${task.importance >= 4 ? " importance-high" : ""}">Importance ${task.importance}</span>
+              <span class="chip task-chip-time">${task.estimatedTime}h</span>
+              ${due}
+              ${reminderBadge}
+              <span class="chip task-chip-category">${escapeHtml(categoryName(task.categoryId))}</span>
+            </div>` : ""}
+          </div>
+          ${rightControls}
+        </article>
+      </div>`;
   }
 
   function render() {
@@ -623,6 +664,21 @@ const MOVE_CANCEL_PX = 10;
     }
   }
 
+  function isInstallBannerDismissed() {
+    try {
+      return localStorage.getItem("lists_install_banner_dismissed") === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  function dismissInstallBanner() {
+    try {
+      localStorage.setItem("lists_install_banner_dismissed", "true");
+    } catch {}
+    if (els.installBar) els.installBar.hidden = true;
+  }
+
   function updateInstallUI() {
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -640,10 +696,13 @@ const MOVE_CANCEL_PX = 10;
       return;
     }
 
+    const dismissed = isInstallBannerDismissed();
+
     if (deferredPrompt) {
       // Browser triggered beforeinstallprompt - installing is supported and available right now!
       if (els.installBtn) els.installBtn.hidden = false;
-      if (els.installBar) els.installBar.hidden = false;
+      // Show the install banner above tasks only if the user hasn't dismissed it
+      if (els.installBar) els.installBar.hidden = dismissed;
       if (els.settingsInstallStatus) {
         els.settingsInstallStatus.textContent = "Ready to install as an app";
       }
@@ -651,8 +710,7 @@ const MOVE_CANCEL_PX = 10;
         els.settingsInstallTitle.textContent = "Install App";
       }
     } else {
-      // Not installable right now (non-mobile browser without prompt, unsupported browser, or already dismissed)
-      // Hide the Install button on the main page so it does not clutter the screen
+      // Not installable right now (non-mobile browser without prompt, unsupported browser, or already installed)
       if (els.installBtn) els.installBtn.hidden = true;
       if (els.installBar) els.installBar.hidden = true;
 
@@ -1054,10 +1112,11 @@ const MOVE_CANCEL_PX = 10;
     els.categoryForm.elements.name.focus();
   }
 
-  function confirmAction({ title, message, okLabel = "Delete", onConfirm }) {
+  function confirmAction({ title, message, okLabel = "Delete", okClass = "danger", onConfirm }) {
     els.confirmTitle.textContent = title;
     els.confirmMessage.textContent = message;
     els.confirmOk.textContent = okLabel;
+    els.confirmOk.className = `btn-filled ${okClass}`;
     state.confirmHandler = onConfirm;
     openOverlay(els.confirmDialog);
   }
@@ -1134,8 +1193,9 @@ const MOVE_CANCEL_PX = 10;
 
     const onMove = (event) => {
       if (!state.drag) return;
-      const dragging = els.list.querySelector(".task-card.dragging");
-      if (!dragging) return;
+      const draggingCard = els.list.querySelector(".task-card.dragging");
+      if (!draggingCard) return;
+      const draggingWrapper = draggingCard.closest(".task-item-wrapper") || draggingCard;
 
       if (previewEl) {
         previewEl.style.top = `${event.clientY - dragOffsetY}px`;
@@ -1143,17 +1203,19 @@ const MOVE_CANCEL_PX = 10;
       }
 
       const y = event.clientY;
-      const others = [...els.list.querySelectorAll(".task-card:not(.dragging)")];
-      for (const card of others) {
-        const rect = card.getBoundingClientRect();
+      const otherWrappers = [...els.list.querySelectorAll(".task-item-wrapper")].filter(
+        (w) => !w.contains(draggingCard)
+      );
+      for (const wrapper of otherWrappers) {
+        const rect = wrapper.getBoundingClientRect();
         const mid = rect.top + rect.height / 2;
         if (y < mid) {
-          card.before(dragging);
+          wrapper.before(draggingWrapper);
           return;
         }
       }
-      const last = others[others.length - 1];
-      if (last) last.after(dragging);
+      const last = otherWrappers[otherWrappers.length - 1];
+      if (last) last.after(draggingWrapper);
     };
 
     const endDrag = async () => {
@@ -1172,7 +1234,7 @@ const MOVE_CANCEL_PX = 10;
         dragging.classList.remove("dragging");
         dragging.classList.remove("drag-placeholder");
       }
-      const ids = [...els.list.querySelectorAll(".task-card")].map((card) => card.dataset.id);
+      const ids = [...els.list.querySelectorAll(".task-item-wrapper")].map((w) => w.dataset.id);
       state.drag = null;
       await applyManualOrder(ids);
       render();
@@ -1424,6 +1486,10 @@ const MOVE_CANCEL_PX = 10;
       els.installBtn.addEventListener("click", handleInstallPrompt);
     }
 
+    if (els.dismissInstallBtn) {
+      els.dismissInstallBtn.addEventListener("click", dismissInstallBanner);
+    }
+
     if (els.settingsInstallBtn) {
       els.settingsInstallBtn.addEventListener("click", handleInstallPrompt);
     }
@@ -1501,7 +1567,13 @@ const MOVE_CANCEL_PX = 10;
     });
 
     bindLongPress(els.list, ".task-card", (card, event) => {
-      if (event.target.closest(".drag-handle") || event.target.closest(".task-complete")) return;
+      if (
+        event.target.closest(".drag-handle") ||
+        event.target.closest(".task-complete") ||
+        event.target.closest(".task-icon-btn")
+      ) {
+        return;
+      }
       state.actionTaskId = card.dataset.id;
       const task = state.tasks.find((item) => item.id === state.actionTaskId);
       const isSub = Boolean(task?.isSubheading);
@@ -1522,6 +1594,40 @@ const MOVE_CANCEL_PX = 10;
     });
 
     els.list.addEventListener("click", async (event) => {
+      const undoBtn = event.target.closest("[data-undo]");
+      if (undoBtn) {
+        const task = state.tasks.find((item) => item.id === undoBtn.dataset.undo);
+        if (!task || task.isSubheading) return;
+        confirmAction({
+          title: "Restore task?",
+          message: `Move “${task.name}” back to active tasks?`,
+          okLabel: "Restore",
+          okClass: "success",
+          onConfirm: async () => {
+            await toggleComplete(task);
+          },
+        });
+        return;
+      }
+
+      const delBtn = event.target.closest("[data-delete]");
+      if (delBtn) {
+        const task = state.tasks.find((item) => item.id === delBtn.dataset.delete);
+        if (!task) return;
+        confirmAction({
+          title: "Delete task permanently?",
+          message: `“${task.name}” will be permanently removed.`,
+          okLabel: "Delete",
+          okClass: "danger",
+          onConfirm: async () => {
+            await remove("tasks", task.id);
+            state.tasks = await getAll("tasks");
+            render();
+          },
+        });
+        return;
+      }
+
       const complete = event.target.closest("[data-complete]");
       if (!complete) return;
       const task = state.tasks.find((item) => item.id === complete.dataset.complete);
@@ -1773,6 +1879,174 @@ const MOVE_CANCEL_PX = 10;
     });
 
     setupDrag();
+    setupSwipeActions();
+  }
+
+  function setupSwipeActions() {
+    let activeCard = null;
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let isSwiping = false;
+    let hasDecidedAxis = false;
+    let completeCue = null;
+    let deleteCue = null;
+
+    const SWIPE_THRESHOLD_PX = 72; // Distance needed to trigger confirmation
+
+    const resetCardPosition = (card) => {
+      if (!card) return;
+      card.classList.remove("swiping");
+      card.classList.add("swipe-animating");
+      card.style.transform = "translateX(0px)";
+      const wrapper = card.closest(".task-item-wrapper");
+      if (wrapper) {
+        const comp = wrapper.querySelector(".cue-complete");
+        const del = wrapper.querySelector(".cue-delete");
+        if (comp) comp.style.opacity = "0";
+        if (del) del.style.opacity = "0";
+      }
+      setTimeout(() => {
+        card.classList.remove("swipe-animating");
+      }, 250);
+    };
+
+    const onPointerMove = (e) => {
+      if (!activeCard) return;
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      if (!hasDecidedAxis) {
+        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+          hasDecidedAxis = true;
+          // If vertical movement dominates, cancel swipe and allow natural scrolling
+          if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+            cleanupSwipe();
+            return;
+          }
+          isSwiping = true;
+          activeCard.classList.add("swiping");
+          activeCard.classList.remove("swipe-animating");
+        }
+      }
+
+      if (!isSwiping) return;
+
+      // Prevent accidental scrolling while horizontal swipe is engaged
+      if (e.cancelable) e.preventDefault();
+
+      currentX = deltaX;
+      // Damping resistance past threshold
+      let visualX = deltaX;
+      if (Math.abs(deltaX) > SWIPE_THRESHOLD_PX) {
+        const excess = Math.abs(deltaX) - SWIPE_THRESHOLD_PX;
+        visualX = Math.sign(deltaX) * (SWIPE_THRESHOLD_PX + excess * 0.35);
+      }
+
+      activeCard.style.transform = `translateX(${visualX}px)`;
+
+      // Update cue opacities based on direction
+      const progress = Math.min(1, Math.abs(visualX) / SWIPE_THRESHOLD_PX);
+      if (deltaX > 0) {
+        // Swiping right -> complete cue
+        if (completeCue) completeCue.style.opacity = String(progress);
+        if (deleteCue) deleteCue.style.opacity = "0";
+      } else {
+        // Swiping left -> delete cue
+        if (deleteCue) deleteCue.style.opacity = String(progress);
+        if (completeCue) completeCue.style.opacity = "0";
+      }
+    };
+
+    const cleanupSwipe = () => {
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerUp);
+      activeCard = null;
+      completeCue = null;
+      deleteCue = null;
+      isSwiping = false;
+      hasDecidedAxis = false;
+    };
+
+    const onPointerUp = (e) => {
+      if (!activeCard) return;
+      const card = activeCard;
+      const finalDeltaX = currentX;
+      cleanupSwipe();
+
+      if (Math.abs(finalDeltaX) >= SWIPE_THRESHOLD_PX) {
+        const taskId = card.dataset.id;
+        const task = state.tasks.find((t) => t.id === taskId);
+        if (!task || task.isSubheading) {
+          resetCardPosition(card);
+          return;
+        }
+
+        if (finalDeltaX > 0) {
+          // Swipe Right: Complete task -> require confirmation
+          resetCardPosition(card);
+          const isArchived = Boolean(task.completed);
+          confirmAction({
+            title: isArchived ? "Mark incomplete?" : "Mark complete?",
+            message: isArchived
+              ? `Move “${task.name}” back to active tasks?`
+              : `Mark “${task.name}” as complete?`,
+            okLabel: isArchived ? "Restore" : "Complete",
+            okClass: "success",
+            onConfirm: async () => {
+              await toggleComplete(task);
+            },
+          });
+        } else {
+          // Swipe Left: Delete task -> require confirmation
+          resetCardPosition(card);
+          confirmAction({
+            title: "Delete task?",
+            message: `“${task.name}” will be removed.`,
+            okLabel: "Delete",
+            okClass: "danger",
+            onConfirm: async () => {
+              await remove("tasks", task.id);
+              state.tasks = await getAll("tasks");
+              render();
+            },
+          });
+        }
+      } else {
+        resetCardPosition(card);
+      }
+    };
+
+    els.list.addEventListener("pointerdown", (e) => {
+      // Ignore if clicking drag-handle, complete toggle, or archive buttons
+      if (
+        e.target.closest(".drag-handle") ||
+        e.target.closest(".task-complete") ||
+        e.target.closest(".task-icon-btn")
+      ) {
+        return;
+      }
+
+      const card = e.target.closest(".task-card");
+      if (!card || card.dataset.isSubheading === "true") return;
+
+      const wrapper = card.closest(".task-item-wrapper");
+      if (!wrapper) return;
+
+      activeCard = card;
+      startX = e.clientX;
+      startY = e.clientY;
+      currentX = 0;
+      isSwiping = false;
+      hasDecidedAxis = false;
+      completeCue = wrapper.querySelector(".cue-complete");
+      deleteCue = wrapper.querySelector(".cue-delete");
+
+      document.addEventListener("pointermove", onPointerMove, { passive: false });
+      document.addEventListener("pointerup", onPointerUp);
+      document.addEventListener("pointercancel", onPointerUp);
+    });
   }
 
   async function toggleComplete(task) {
