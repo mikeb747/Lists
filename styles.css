@@ -1094,3 +1094,46 @@ html[data-theme="dark"] .tracker-pill.pill-partial {
   color: var(--md-primary);
 }
 
+/* PWA Install Button */
+#install-app-btn {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--md-primary, #6750A4);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  transition: transform 0.15s ease, filter 0.15s ease, background 0.2s ease;
+}
+
+#install-app-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+#install-app-btn:active {
+  transform: translateY(0);
+}
+
+#install-app-btn[hidden] {
+  display: none !important;
+}
+
+.install-bar {
+  padding: 8px 16px 4px;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.install-bar[hidden] {
+  display: none !important;
+}
+

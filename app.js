@@ -47,6 +47,11 @@
     moveTabList: document.getElementById("move-tab-list"),
     moveTaskDesc: document.getElementById("move-task-desc"),
     moveTaskCancel: document.getElementById("move-task-cancel"),
+    installBtn: document.getElementById("install-app-btn"),
+    installBar: document.getElementById("install-bar"),
+    settingsInstallBtn: document.getElementById("btn-settings-install"),
+    settingsInstallTitle: document.getElementById("settings-install-title"),
+    settingsInstallStatus: document.getElementById("settings-install-status"),
     trackerDialog: document.getElementById("dialog-tracker"),
     trackerClose: document.getElementById("tracker-close"),
     trackerCloseIcon: document.getElementById("tracker-close-icon"),
@@ -75,6 +80,8 @@
     confirmHandler: null,
     drag: null,
   };
+
+  let deferredPrompt = null;
 
   function uid() {
     return crypto.randomUUID();
@@ -358,6 +365,74 @@
       const percent = Math.round((doneCount / total) * 100);
       els.settingsTrackerBadge.textContent = `${doneCount} of ${total} features complete (${percent}%)`;
     }
+
+    updateInstallUI();
+  }
+
+  function updateInstallUI() {
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+
+    if (isStandalone) {
+      if (els.installBtn) els.installBtn.hidden = true;
+      if (els.installBar) els.installBar.hidden = true;
+      if (els.settingsInstallStatus) {
+        els.settingsInstallStatus.textContent = "Lists is installed on this device";
+      }
+      if (els.settingsInstallBtn) {
+        els.settingsInstallBtn.style.opacity = "0.7";
+      }
+      return;
+    }
+
+    if (deferredPrompt) {
+      if (els.installBtn) els.installBtn.hidden = false;
+      if (els.installBar) els.installBar.hidden = false;
+      if (els.settingsInstallStatus) {
+        els.settingsInstallStatus.textContent = "Ready to install as an app";
+      }
+      if (els.settingsInstallBtn) {
+        els.settingsInstallBtn.style.opacity = "1";
+      }
+    } else {
+      if (els.installBtn) els.installBtn.hidden = true;
+      if (els.installBar) els.installBar.hidden = true;
+      const isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+      if (els.settingsInstallStatus) {
+        els.settingsInstallStatus.textContent = isIOS
+          ? "Tap Share ⎋ then 'Add to Home Screen'"
+          : "Available in Chrome / Edge";
+      }
+    }
+  }
+
+  async function handleInstallPrompt() {
+    if (!deferredPrompt) {
+      const isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+      if (isIOS) {
+        confirmAction({
+          title: "Install on iOS",
+          message: "To install Lists on your iPhone or iPad, tap the Share icon ⎋ at the bottom of Safari, then choose 'Add to Home Screen'.",
+          okLabel: "Got it",
+          onConfirm: () => {},
+        });
+      } else {
+        confirmAction({
+          title: "Install Lists App",
+          message: "To install Lists as a standalone PWA, open this page in Google Chrome or Microsoft Edge and choose 'Install Lists' from the address bar or settings.",
+          okLabel: "Got it",
+          onConfirm: () => {},
+        });
+      }
+      return;
+    }
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if (choice?.outcome === "accepted") {
+      deferredPrompt = null;
+    }
+    updateInstallUI();
   }
 
   function exportData() {
@@ -873,6 +948,28 @@
       els.exportBtn.addEventListener("click", exportData);
     }
 
+    if (els.installBtn) {
+      els.installBtn.addEventListener("click", handleInstallPrompt);
+    }
+
+    if (els.settingsInstallBtn) {
+      els.settingsInstallBtn.addEventListener("click", () => {
+        closeOverlays();
+        handleInstallPrompt();
+      });
+    }
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      updateInstallUI();
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredPrompt = null;
+      updateInstallUI();
+    });
+
     if (els.importBtn && els.importFile) {
       els.importBtn.addEventListener("click", () => els.importFile.click());
       els.importFile.addEventListener("change", (e) => {
@@ -1097,6 +1194,7 @@
     await seedIfEmpty();
     applyTheme();
     setupEvents();
+    updateInstallUI();
     render();
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (state.settings.theme === "system") applyTheme();
