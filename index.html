@@ -220,6 +220,55 @@
           </div>
         </div>
 
+        <div class="settings-group" id="google-drive-group">
+          <label class="settings-label">Google Drive Cloud Sync</label>
+          <p class="settings-hint">Connect your personal Google account to backup and restore tasks across devices directly on your Google Drive.</p>
+          
+          <div id="drive-disconnected-ui">
+            <button type="button" class="gsi-material-button" id="btn-google-drive-connect">
+              <div class="gsi-material-button-state"></div>
+              <div class="gsi-material-button-content-wrapper">
+                <div class="gsi-material-button-icon">
+                  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="display: block;">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                    <path fill="none" d="M0 0h48v48H0z"></path>
+                  </svg>
+                </div>
+                <span class="gsi-material-button-contents">Sign in with Google</span>
+              </div>
+            </button>
+          </div>
+
+          <div id="drive-connected-ui" hidden>
+            <div class="google-user-card">
+              <img id="drive-user-photo" class="google-user-avatar" src="" alt="Google Profile" />
+              <div class="google-user-info">
+                <span id="drive-user-name" class="google-user-name">Google User</span>
+                <span id="drive-user-email" class="google-user-email">user@gmail.com</span>
+              </div>
+              <button type="button" id="btn-google-drive-disconnect" class="btn-text-sm" title="Disconnect Google Drive">Disconnect</button>
+            </div>
+
+            <div class="settings-actions-row" style="margin-top: 10px;">
+              <button type="button" id="btn-drive-backup" class="btn-text-outlined">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: -2px; margin-right: 4px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                Backup to Drive
+              </button>
+              <button type="button" id="btn-drive-restore" class="btn-text-outlined">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: -2px; margin-right: 4px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM12 17l-5-5h3V8h4v4h3l-5 5z"/></svg>
+                Restore from Drive
+              </button>
+            </div>
+
+            <div id="drive-sync-status" class="drive-status-message">
+              <span>Ready to sync with Google Drive</span>
+            </div>
+          </div>
+        </div>
+
         <div class="settings-footer">
           <span class="settings-version">Lists v1.2.0 • Offline PWA</span>
         </div>
@@ -379,6 +428,6 @@
       <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <script src="./app.js?v=1" defer></script>
+    <script type="module" src="./app.js?v=2"></script>
   </body>
 </html>

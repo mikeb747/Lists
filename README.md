@@ -190,10 +190,10 @@ Feature list:
 
 #### 7. Data Storage
 - [x] **Local Storage / IndexedDB**: Full offline schema with `tasks`, `categories`, and `settings` stores.
-- [x] **No backend**: Zero external API or database requirement.
-- [x] **No account required**: Immediate use without sign-in.
-- [x] **No cloud sync**: Fully private, local-only data.
-- [x] **Data stored entirely on device**: Verified.
+- [x] **No backend required**: Zero external database dependency; 100% client-side offline execution.
+- [x] **No account required for offline use**: Immediate use without sign-in.
+- [x] **Google Drive Cloud Backup & Restore**: Standard Google Sign-In button in Settings allowing users to connect their personal Google account to backup and restore their tasks, tabs, and settings directly via Google Drive.
+- [x] **Data stored entirely on device**: Local-first storage with optional user-controlled private cloud backup.
 
 #### 8. User Interface
 - [x] **Mobile First Design**: Optimized for single-hand mobile usage with bottom sheets.

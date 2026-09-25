@@ -1,8 +1,17 @@
-(() => {
-  const DB_NAME = "priority-planner";
-  const DB_VERSION = 1;
-  const LONG_PRESS_MS = 520;
-  const MOVE_CANCEL_PX = 10;
+import {
+  initGoogleAuth,
+  signInWithGoogle,
+  signOutGoogle,
+  backupToDrive,
+  restoreFromDrive,
+  getCachedToken,
+  getCurrentUser,
+} from "./google-drive.js";
+
+const DB_NAME = "priority-planner";
+const DB_VERSION = 1;
+const LONG_PRESS_MS = 520;
+const MOVE_CANCEL_PX = 10;
 
   const SORT_LABELS = {
     manual: "Manual order",
@@ -76,12 +85,24 @@
     toastTitle: document.getElementById("toast-title"),
     toastMsg: document.getElementById("toast-msg"),
     toastClose: document.getElementById("toast-close"),
+    driveDisconnectedUi: document.getElementById("drive-disconnected-ui"),
+    driveConnectedUi: document.getElementById("drive-connected-ui"),
+    googleConnectBtn: document.getElementById("btn-google-drive-connect"),
+    googleDisconnectBtn: document.getElementById("btn-google-drive-disconnect"),
+    driveBackupBtn: document.getElementById("btn-drive-backup"),
+    driveRestoreBtn: document.getElementById("btn-drive-restore"),
+    driveUserPhoto: document.getElementById("drive-user-photo"),
+    driveUserName: document.getElementById("drive-user-name"),
+    driveUserEmail: document.getElementById("drive-user-email"),
+    driveSyncStatus: document.getElementById("drive-sync-status"),
   };
 
   const state = {
     db: null,
     tasks: [],
     categories: [],
+    googleUser: null,
+    driveToken: null,
     settings: {
       sortMode: "manual",
       hideCompleted: true,
@@ -735,6 +756,180 @@
     }
   }
 
+  function updateGoogleDriveUI(user = state.googleUser) {
+    if (!els.driveDisconnectedUi || !els.driveConnectedUi) return;
+    if (user) {
+      els.driveDisconnectedUi.hidden = true;
+      els.driveConnectedUi.hidden = false;
+      if (els.driveUserName) {
+        els.driveUserName.textContent = user.displayName || user.email?.split("@")[0] || "Google User";
+      }
+      if (els.driveUserEmail) {
+        els.driveUserEmail.textContent = user.email || "";
+      }
+      if (els.driveUserPhoto) {
+        if (user.photoURL) {
+          els.driveUserPhoto.src = user.photoURL;
+          els.driveUserPhoto.style.display = "block";
+        } else {
+          els.driveUserPhoto.style.display = "none";
+        }
+      }
+    } else {
+      els.driveDisconnectedUi.hidden = false;
+      els.driveConnectedUi.hidden = true;
+    }
+  }
+
+  function setDriveStatus(text, type = "normal") {
+    if (!els.driveSyncStatus) return;
+    els.driveSyncStatus.className = `drive-status-message ${type}`;
+    els.driveSyncStatus.innerHTML = `<span>${escapeHtml(text)}</span>`;
+  }
+
+  async function handleGoogleConnect() {
+    try {
+      setDriveStatus("Connecting to Google...", "normal");
+      const res = await signInWithGoogle();
+      if (res?.user) {
+        state.googleUser = res.user;
+        state.driveToken = res.accessToken;
+        updateGoogleDriveUI(res.user);
+        setDriveStatus(`Connected to ${res.user.email} ✓`, "success");
+      }
+    } catch (err) {
+      console.error("Google connect failed:", err);
+      setDriveStatus(err.message || "Failed to connect to Google", "error");
+    }
+  }
+
+  async function handleGoogleDisconnect() {
+    confirmAction({
+      title: "Disconnect Google Drive?",
+      message: "This will disconnect your Google account from Lists. Your local tasks will remain untouched.",
+      okLabel: "Disconnect",
+      onConfirm: async () => {
+        try {
+          await signOutGoogle();
+          state.googleUser = null;
+          state.driveToken = null;
+          updateGoogleDriveUI(null);
+          setDriveStatus("Disconnected from Google Drive", "normal");
+        } catch (err) {
+          console.error("Error signing out:", err);
+        }
+      },
+    });
+  }
+
+  async function handleDriveBackup() {
+    let token = state.driveToken || getCachedToken();
+    if (!token) {
+      try {
+        setDriveStatus("Connecting to Google Drive...", "normal");
+        const res = await signInWithGoogle();
+        token = res?.accessToken;
+        state.googleUser = res?.user;
+        state.driveToken = token;
+        updateGoogleDriveUI(res?.user);
+      } catch (err) {
+        setDriveStatus("Sign-in cancelled or failed", "error");
+        return;
+      }
+    }
+
+    try {
+      if (els.driveBackupBtn) els.driveBackupBtn.disabled = true;
+      setDriveStatus("Uploading backup to Google Drive...", "normal");
+
+      const payload = {
+        version: 1,
+        source: "Lists PWA",
+        account: state.googleUser?.email || "unknown",
+        exportedAt: new Date().toISOString(),
+        tasks: state.tasks,
+        categories: state.categories,
+        settings: state.settings,
+      };
+
+      await backupToDrive(token, payload);
+      const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      setDriveStatus(`Saved to Google Drive at ${timeStr} (${payload.tasks.length} tasks) ✓`, "success");
+    } catch (err) {
+      console.error("Drive backup error:", err);
+      setDriveStatus(`Backup failed: ${err.message}`, "error");
+    } finally {
+      if (els.driveBackupBtn) els.driveBackupBtn.disabled = false;
+    }
+  }
+
+  async function handleDriveRestore() {
+    let token = state.driveToken || getCachedToken();
+    if (!token) {
+      try {
+        setDriveStatus("Connecting to Google Drive...", "normal");
+        const res = await signInWithGoogle();
+        token = res?.accessToken;
+        state.googleUser = res?.user;
+        state.driveToken = token;
+        updateGoogleDriveUI(res?.user);
+      } catch (err) {
+        setDriveStatus("Sign-in cancelled or failed", "error");
+        return;
+      }
+    }
+
+    try {
+      if (els.driveRestoreBtn) els.driveRestoreBtn.disabled = true;
+      setDriveStatus("Checking Google Drive for backup...", "normal");
+
+      const { data, fileMeta } = await restoreFromDrive(token);
+      if (!data || !Array.isArray(data.tasks)) {
+        throw new Error("Backup file found on Drive is invalid or corrupted.");
+      }
+
+      const taskCount = data.tasks.length;
+      const modDate = fileMeta.modifiedTime ? new Date(fileMeta.modifiedTime).toLocaleString() : "Recent";
+
+      // Explicit user confirmation dialog as mandated by skill guidelines!
+      confirmAction({
+        title: "Restore from Google Drive?",
+        message: `Restore ${taskCount} tasks from ${state.googleUser?.email || "Google Drive"} (saved: ${modDate})? Your current local data will be replaced.`,
+        okLabel: "Restore Data",
+        onConfirm: async () => {
+          try {
+            setDriveStatus("Restoring data from Drive...", "normal");
+            for (const task of data.tasks) {
+              await put("tasks", task);
+            }
+            if (Array.isArray(data.categories)) {
+              for (const cat of data.categories) {
+                await put("categories", cat);
+              }
+            }
+            if (data.settings) {
+              state.settings = { ...state.settings, ...data.settings };
+              await saveSettings();
+            }
+            await loadAll();
+            applyTheme();
+            render();
+            closeOverlays();
+            setDriveStatus(`Restored ${taskCount} tasks from Google Drive ✓`, "success");
+          } catch (restoreErr) {
+            console.error("Failed applying restore:", restoreErr);
+            setDriveStatus(`Restore error: ${restoreErr.message}`, "error");
+          }
+        },
+      });
+    } catch (err) {
+      console.error("Drive restore error:", err);
+      setDriveStatus(err.message, "error");
+    } finally {
+      if (els.driveRestoreBtn) els.driveRestoreBtn.disabled = false;
+    }
+  }
+
   function openOverlay(el) {
     els.scrim.hidden = false;
     el.hidden = false;
@@ -1055,9 +1250,9 @@
     // 7. Data Storage
     { section: "Data Storage", name: "Local Storage / IndexedDB", status: "done", desc: "IndexedDB database 'priority-planner' with 3 stores." },
     { section: "Data Storage", name: "No backend required", status: "done", desc: "100% client-side offline execution." },
-    { section: "Data Storage", name: "No account required", status: "done", desc: "Zero authentication friction; works immediately." },
-    { section: "Data Storage", name: "No cloud sync", status: "done", desc: "All data stays private and stored locally on the device." },
-    { section: "Data Storage", name: "Data stored entirely on device", status: "done", desc: "Confirmed local-only storage." },
+    { section: "Data Storage", name: "No account required for offline use", status: "done", desc: "Zero authentication friction; works immediately offline." },
+    { section: "Data Storage", name: "Google Drive Cloud Backup & Restore", status: "done", desc: "Client-side Google OAuth integration allowing users to connect their personal Google account to backup and restore tasks across devices." },
+    { section: "Data Storage", name: "Data stored entirely on device", status: "done", desc: "Confirmed local-first storage with optional private cloud backup." },
 
     // 8. User Interface
     { section: "User Interface", name: "Mobile First Design", status: "done", desc: "Single-hand friendly layout with bottom sheets and thumb zones." },
@@ -1226,6 +1421,22 @@
         const file = e.target.files?.[0];
         if (file) importData(file);
       });
+    }
+
+    if (els.googleConnectBtn) {
+      els.googleConnectBtn.addEventListener("click", handleGoogleConnect);
+    }
+
+    if (els.googleDisconnectBtn) {
+      els.googleDisconnectBtn.addEventListener("click", handleGoogleDisconnect);
+    }
+
+    if (els.driveBackupBtn) {
+      els.driveBackupBtn.addEventListener("click", handleDriveBackup);
+    }
+
+    if (els.driveRestoreBtn) {
+      els.driveRestoreBtn.addEventListener("click", handleDriveRestore);
     }
 
     els.scrim.addEventListener("click", closeOverlays);
@@ -1576,7 +1787,16 @@
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) checkPendingReminders();
     });
+
+    initGoogleAuth((user, token) => {
+      state.googleUser = user;
+      state.driveToken = token;
+      updateGoogleDriveUI(user);
+      if (user) {
+        setDriveStatus(`Connected as ${user.email} (Drive ready) ✓`, "success");
+      }
+    });
   }
 
   init();
-})();
+

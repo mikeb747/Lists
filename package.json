@@ -9,6 +9,7 @@
     "build": "node -e \"console.log('Build complete')\""
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "firebase": "^12.19.0"
   }
 }

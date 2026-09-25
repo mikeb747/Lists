@@ -1,12 +1,14 @@
-const CACHE_NAME = "priority-planner-v2";
+const CACHE_NAME = "priority-planner-v3";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./google-drive.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/maskable_icon_x512.png",
 ];
 
 self.addEventListener("install", (event) => {
