@@ -216,13 +216,12 @@ body {
 
 .tabs-wrapper {
   position: sticky;
-  top: calc(var(--bar-height) + var(--safe-top) - 8px);
+  top: calc(var(--bar-height) + var(--safe-top));
   z-index: 19;
   display: flex;
   align-items: center;
-  position: relative;
   background: var(--md-surface);
-  padding: 0 4px 12px;
+  padding: 4px 6px 10px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -233,16 +232,33 @@ body {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 0 12px;
+  padding: 0 10px;
   background: transparent;
   scrollbar-width: none;
   scroll-behavior: smooth;
   user-select: none;
   -webkit-overflow-scrolling: touch;
+  transition: mask-image 0.2s ease, -webkit-mask-image 0.2s ease;
 }
 
 .tabs::-webkit-scrollbar {
   display: none;
+}
+
+/* Soft edge fading: feather out tabs near the end instead of a harsh cutoff */
+.tabs-wrapper.fade-right:not(.fade-left) .tabs {
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 48px), transparent 100%);
+}
+
+.tabs-wrapper.fade-left:not(.fade-right) .tabs {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 48px, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 48px, #000 100%);
+}
+
+.tabs-wrapper.fade-left.fade-right .tabs {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 48px, #000 calc(100% - 48px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 48px, #000 calc(100% - 48px), transparent 100%);
 }
 
 .tab-scroll-btn {
@@ -257,8 +273,8 @@ body {
   color: var(--md-on-surface);
   cursor: pointer;
   place-items: center;
-  transition: opacity 0.2s, background-color 0.15s, color 0.15s, border-color 0.15s;
-  z-index: 2;
+  transition: opacity 0.2s, background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+  z-index: 3;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
@@ -271,10 +287,15 @@ body {
   background: var(--md-primary-container);
   color: var(--md-on-primary-container);
   border-color: var(--md-primary);
+  transform: scale(1.06);
+}
+
+.tab-scroll-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .tab-scroll-btn:disabled {
-  opacity: 0.22;
+  opacity: 0.18;
   cursor: default;
   pointer-events: none;
 }
@@ -390,7 +411,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px 16px 16px;
+  padding: 8px 16px 24px;
 }
 
 .empty-state {

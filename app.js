@@ -1487,13 +1487,14 @@ const MOVE_CANCEL_PX = 10;
 
     els.tabsWrapper.classList.toggle("has-overflow", hasOverflow);
 
-    if (hasOverflow) {
-      els.tabScrollLeft.disabled = scrollLeft <= 2;
-      els.tabScrollRight.disabled = Math.ceil(scrollLeft + clientWidth) >= scrollWidth - 2;
-    } else {
-      els.tabScrollLeft.disabled = true;
-      els.tabScrollRight.disabled = true;
-    }
+    const canScrollLeft = hasOverflow && scrollLeft > 2;
+    const canScrollRight = hasOverflow && Math.ceil(scrollLeft + clientWidth) < scrollWidth - 2;
+
+    els.tabScrollLeft.disabled = !canScrollLeft;
+    els.tabScrollRight.disabled = !canScrollRight;
+
+    els.tabsWrapper.classList.toggle("fade-left", canScrollLeft);
+    els.tabsWrapper.classList.toggle("fade-right", canScrollRight);
   }
 
   function setupTabScroll() {
