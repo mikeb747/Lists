@@ -1137,3 +1137,187 @@ html[data-theme="dark"] .tracker-pill.pill-partial {
   display: none !important;
 }
 
+/* Compact List View */
+.compact-list .task-card {
+  padding: 8px 12px;
+  min-height: 44px;
+}
+
+.compact-list .task-card .task-meta {
+  display: none !important;
+}
+
+.compact-list .task-card .task-body {
+  gap: 2px;
+}
+
+.compact-list .task-card .task-name {
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.action-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface-variant);
+  margin-left: auto;
+}
+
+.action-badge.active {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+
+/* Reminder Form Controls & Chips */
+.form-row-reminder {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.form-row-reminder label {
+  font-size: 0.8125rem;
+  color: var(--md-on-surface-variant);
+  font-weight: 500;
+}
+
+.reminder-input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reminder-input-wrap input[type="datetime-local"] {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--radius-sm);
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.reminder-input-wrap input[type="datetime-local"]:focus {
+  outline: none;
+  border-color: var(--md-primary);
+}
+
+.reminder-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.preset-chip {
+  padding: 4px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--md-outline-variant);
+  background: var(--md-surface-container);
+  color: var(--md-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-chip:hover {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border-color: var(--md-primary);
+}
+
+.chip.task-chip-reminder {
+  background: var(--md-secondary-container, #e8def8);
+  color: var(--md-on-secondary-container, #1d192b);
+  border: 1px solid rgba(103, 80, 164, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.chip.task-chip-reminder.fired {
+  opacity: 0.65;
+  text-decoration: line-through;
+}
+
+/* In-App Reminder Toast */
+.reminder-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92vw, 420px);
+  background: var(--md-inverse-surface, #313033);
+  color: var(--md-inverse-on-surface, #f4eff4);
+  padding: 12px 16px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1000;
+  animation: slideDownToast 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+.reminder-toast[hidden] {
+  display: none !important;
+}
+
+.toast-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-body strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toast-body p {
+  font-size: 0.75rem;
+  opacity: 0.88;
+  margin-top: 2px;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideDownToast {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+

@@ -6,10 +6,12 @@
 
   const SORT_LABELS = {
     manual: "Manual order",
+    today: "Due today",
+    tomorrow: "Due tomorrow",
+    due7: "Due next 7 days",
     importance: "Sorted by importance",
     time: "Sorted by estimated time",
     quickWins: "Quick wins",
-    due7: "Due next 7 days",
   };
 
   const els = {
@@ -59,6 +61,21 @@
     trackerProgressBar: document.getElementById("tracker-progress-bar"),
     trackerSummaryText: document.getElementById("tracker-summary-text"),
     trackerSummaryPercent: document.getElementById("tracker-summary-percent"),
+    reminderInput: document.getElementById("task-reminder-input"),
+    clearReminderBtn: document.getElementById("btn-clear-reminder"),
+    notifStatus: document.getElementById("notif-perm-status"),
+    requestNotifBtn: document.getElementById("btn-request-notif"),
+    testNotifBtn: document.getElementById("btn-test-notif"),
+    actionTaskReminder: document.getElementById("action-task-reminder"),
+    actionCompactBtn: document.getElementById("action-toggle-compact"),
+    labelCompact: document.getElementById("label-toggle-compact"),
+    badgeCompact: document.getElementById("badge-toggle-compact"),
+    actionRenameCat: document.getElementById("action-rename-cat"),
+    actionDeleteCat: document.getElementById("action-delete-cat"),
+    reminderToast: document.getElementById("reminder-toast"),
+    toastTitle: document.getElementById("toast-title"),
+    toastMsg: document.getElementById("toast-msg"),
+    toastClose: document.getElementById("toast-close"),
   };
 
   const state = {
@@ -71,11 +88,13 @@
       theme: "system",
       colorTheme: "purple",
       activeTab: "all",
+      compactTabs: {},
     },
     editingTaskId: null,
     editingCategoryId: null,
     actionTaskId: null,
     actionCategoryId: null,
+    actionTabId: null,
     movingTaskId: null,
     confirmHandler: null,
     drag: null,
@@ -212,6 +231,24 @@
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", headerColor);
   }
 
+  function formatReminderBadge(isoStr) {
+    if (!isoStr) return "";
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return "";
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      if (isToday) return `Today ${timeStr}`;
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (d.toDateString() === tomorrow.toDateString()) return `Tmrw ${timeStr}`;
+      return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${timeStr}`;
+    } catch {
+      return "";
+    }
+  }
+
   function visibleTasks() {
     const { activeTab, sortMode, hideCompleted } = state.settings;
     let tasks = [...state.tasks];
@@ -225,6 +262,16 @@
       if (hideCompleted) {
         tasks = tasks.filter((task) => task.isSubheading || !task.completed);
       }
+    }
+
+    if (sortMode === "today") {
+      const today = todayISO();
+      tasks = tasks.filter((task) => !task.isSubheading && task.dueDate === today);
+    }
+
+    if (sortMode === "tomorrow") {
+      const tomorrow = addDaysISO(1);
+      tasks = tasks.filter((task) => !task.isSubheading && task.dueDate === tomorrow);
     }
 
     if (sortMode === "quickWins") {
@@ -242,6 +289,8 @@
     const byManual = (a, b) => a.sortPosition - b.sortPosition;
     if (sortMode === "manual") {
       tasks.sort(byManual);
+    } else if (sortMode === "today" || sortMode === "tomorrow") {
+      tasks.sort((a, b) => (b.isSubheading ? -1 : a.isSubheading ? 1 : b.importance - a.importance || byManual(a, b)));
     } else if (sortMode === "importance") {
       tasks.sort((a, b) => (b.isSubheading ? -1 : a.isSubheading ? 1 : b.importance - a.importance || byManual(a, b)));
     } else if (sortMode === "time") {
@@ -271,7 +320,9 @@
   function tabButton(id, label, active, userCategory = false) {
     const activeClass = active ? " active" : "";
     const catAttr = userCategory ? " data-user-category='true'" : "";
-    return `<button type="button" class="tab${activeClass}" data-tab="${id}"${catAttr}>${escapeHtml(
+    const isCompact = Boolean(state.settings.compactTabs?.[id]);
+    const compactAttr = isCompact ? " data-compact='true'" : "";
+    return `<button type="button" class="tab${activeClass}" data-tab="${id}"${catAttr}${compactAttr}>${escapeHtml(
       label
     )}</button>`;
   }
@@ -289,23 +340,30 @@
     const manual = state.settings.sortMode === "manual" && state.settings.activeTab !== "archive";
     els.caption.textContent = SORT_LABELS[state.settings.sortMode] || "Manual order";
 
+    const isCompact = Boolean(state.settings.compactTabs?.[state.settings.activeTab]);
+    els.list.classList.toggle("compact-list", isCompact);
+
     if (!tasks.length) {
       const copy =
         state.settings.activeTab === "archive"
           ? ["No archived tasks", "Completed tasks appear here."]
-          : state.settings.sortMode === "quickWins"
-            ? ["No quick wins", "Quick wins have importance 4+ and take 2 hours or less."]
-            : state.settings.sortMode === "due7"
-              ? ["Nothing due in the next 7 days", "Tasks with a due date this week will show here."]
-              : ["No tasks yet", "Tap the + button to add one."];
+          : state.settings.sortMode === "today"
+            ? ["No tasks due today", "Tasks scheduled for today will appear here."]
+            : state.settings.sortMode === "tomorrow"
+              ? ["No tasks due tomorrow", "Tasks scheduled for tomorrow will appear here."]
+              : state.settings.sortMode === "quickWins"
+                ? ["No quick wins", "Quick wins have importance 4+ and take 2 hours or less."]
+                : state.settings.sortMode === "due7"
+                  ? ["Nothing due in the next 7 days", "Tasks with a due date this week will show here."]
+                  : ["No tasks yet", "Tap the + button to add one."];
       els.list.innerHTML = `<div class="empty-state"><h2>${copy[0]}</h2><p>${copy[1]}</p></div>`;
       return;
     }
 
-    els.list.innerHTML = tasks.map((task) => taskCard(task, manual)).join("");
+    els.list.innerHTML = tasks.map((task) => taskCard(task, manual, isCompact)).join("");
   }
 
-  function taskCard(task, manual) {
+  function taskCard(task, manual, isCompact = false) {
     if (task.isSubheading) {
       return `
       <article class="task-card subheading" data-id="${task.id}" data-is-subheading="true">
@@ -319,25 +377,32 @@
     }
 
     const due = task.dueDate
-      ? `<span class="chip${task.dueDate < todayISO() && !task.completed ? " overdue" : ""}">${escapeHtml(
+      ? `<span class="chip task-chip-due${task.dueDate < todayISO() && !task.completed ? " overdue" : ""}">${escapeHtml(
           task.dueDate
         )}</span>`
       : "";
+    const reminderBadge = task.reminderAt && !task.completed
+      ? `<span class="chip task-chip-reminder${task.reminderFired ? " fired" : ""}" title="Reminder: ${formatReminderBadge(task.reminderAt)}">🔔 ${formatReminderBadge(task.reminderAt)}</span>`
+      : "";
     const doneClass = task.completed ? " completed" : "";
     const checkClass = task.completed ? " done" : "";
+    const compactClass = isCompact ? " compact" : "";
+
     return `
-      <article class="task-card${doneClass}" data-id="${task.id}">
+      <article class="task-card${doneClass}${compactClass}" data-id="${task.id}">
         <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
           <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
         </button>
         <div class="task-body">
           <p class="task-name">${escapeHtml(task.name)}</p>
+          ${!isCompact ? `
           <div class="task-meta">
-            <span class="chip${task.importance >= 4 ? " importance-high" : ""}">Importance ${task.importance}</span>
-            <span class="chip">${task.estimatedTime}h</span>
+            <span class="chip task-chip-importance${task.importance >= 4 ? " importance-high" : ""}">Importance ${task.importance}</span>
+            <span class="chip task-chip-time">${task.estimatedTime}h</span>
             ${due}
-            <span class="chip">${escapeHtml(categoryName(task.categoryId))}</span>
-          </div>
+            ${reminderBadge}
+            <span class="chip task-chip-category">${escapeHtml(categoryName(task.categoryId))}</span>
+          </div>` : ""}
         </div>
         <button type="button" class="task-complete${checkClass}" data-complete="${task.id}" aria-label="${
           task.completed ? "Mark incomplete" : "Mark complete"
@@ -382,6 +447,159 @@
     }
 
     updateInstallUI();
+    updateNotificationSettingsUI();
+  }
+
+  function updateNotificationSettingsUI() {
+    if (!els.notifStatus) return;
+    if (!("Notification" in window)) {
+      els.notifStatus.textContent = "Not supported in this browser";
+      if (els.requestNotifBtn) els.requestNotifBtn.hidden = true;
+      if (els.testNotifBtn) els.testNotifBtn.disabled = true;
+      return;
+    }
+    const perm = Notification.permission;
+    if (perm === "granted") {
+      els.notifStatus.textContent = "Alerts enabled ✓";
+      if (els.requestNotifBtn) {
+        els.requestNotifBtn.textContent = "Enabled";
+        els.requestNotifBtn.disabled = true;
+      }
+      if (els.testNotifBtn) els.testNotifBtn.disabled = false;
+    } else if (perm === "denied") {
+      els.notifStatus.textContent = "Blocked in browser site settings";
+      if (els.requestNotifBtn) {
+        els.requestNotifBtn.textContent = "Blocked";
+        els.requestNotifBtn.disabled = true;
+      }
+      if (els.testNotifBtn) els.testNotifBtn.disabled = false;
+    } else {
+      els.notifStatus.textContent = "Permission not yet granted";
+      if (els.requestNotifBtn) {
+        els.requestNotifBtn.textContent = "Enable";
+        els.requestNotifBtn.disabled = false;
+      }
+      if (els.testNotifBtn) els.testNotifBtn.disabled = false;
+    }
+  }
+
+  async function requestNotificationPermission() {
+    if (!("Notification" in window)) return "unsupported";
+    if (Notification.permission === "granted") return "granted";
+    try {
+      const permission = await Notification.requestPermission();
+      updateNotificationSettingsUI();
+      return permission;
+    } catch {
+      return Notification.permission;
+    }
+  }
+
+  function playReminderChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, now); // D5
+      osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880, now + 0.15);
+      osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.35); // D6
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.25, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc1.stop(now + 0.25);
+      osc2.start(now + 0.15);
+      osc2.stop(now + 0.65);
+    } catch {}
+  }
+
+  let toastTimeout = null;
+  function showInAppReminderToast(task) {
+    if (!els.reminderToast) return;
+    if (els.toastTitle) {
+      els.toastTitle.textContent = `Reminder: ${task.name}`;
+    }
+    if (els.toastMsg) {
+      const parts = [];
+      if (task.dueDate) parts.push(`Due: ${task.dueDate}`);
+      if (task.importance) parts.push(`Importance ${task.importance}/5`);
+      els.toastMsg.textContent = parts.join(" • ") || "Scheduled reminder alert";
+    }
+    els.reminderToast.hidden = false;
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+      if (els.reminderToast) els.reminderToast.hidden = true;
+    }, 8000);
+  }
+
+  function fireTaskReminder(task) {
+    playReminderChime();
+    showInAppReminderToast(task);
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        const notif = new Notification(`Reminder: ${task.name}`, {
+          body: `Lists • ${task.dueDate ? `Due ${task.dueDate} • ` : ""}Importance ${task.importance}/5`,
+          icon: "./icons/icon-192.png",
+          badge: "./icons/icon-192.png",
+          tag: `task-reminder-${task.id}`,
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      } catch {
+        if ("serviceWorker" in navigator && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(`Reminder: ${task.name}`, {
+              body: `Lists • ${task.dueDate ? `Due ${task.dueDate} • ` : ""}Importance ${task.importance}/5`,
+              icon: "./icons/icon-192.png",
+              badge: "./icons/icon-192.png",
+              tag: `task-reminder-${task.id}`,
+            }).catch(() => {});
+          });
+        }
+      }
+    }
+  }
+
+  async function checkPendingReminders() {
+    if (!state.tasks || !state.tasks.length) return;
+    const now = Date.now();
+    let hasUpdates = false;
+
+    for (const task of state.tasks) {
+      if (task.completed || task.isSubheading || !task.reminderAt || task.reminderFired) {
+        continue;
+      }
+      const timeMs = new Date(task.reminderAt).getTime();
+      if (!isNaN(timeMs) && now >= timeMs) {
+        task.reminderFired = true;
+        hasUpdates = true;
+        await put("tasks", task);
+        fireTaskReminder(task);
+      }
+    }
+
+    if (hasUpdates) {
+      state.tasks = await getAll("tasks");
+      renderTasks();
+    }
   }
 
   function updateInstallUI() {
@@ -605,6 +823,13 @@
       els.taskForm.elements.estimatedTime.value = task.estimatedTime ?? 1;
       els.taskForm.elements.dueDate.value = task.dueDate || "";
       els.taskForm.elements.categoryId.value = task.categoryId || "";
+      if (els.reminderInput) {
+        els.reminderInput.value = task.reminderAt || "";
+      }
+    } else {
+      if (els.reminderInput) {
+        els.reminderInput.value = "";
+      }
     }
     els.importanceValue.textContent = els.taskForm.elements.importance.value;
     updateSubheadingUI();
@@ -783,7 +1008,7 @@
     { section: "Tasks", name: "Move task (Moves to different tab)", status: "done", desc: "Click and hold on task opens action sheet with 'Move task' to move immediately to another existing tab." },
     { section: "Tasks", name: "Archive completed tasks", status: "partial", desc: "Archive tab automatically shows completed tasks; manual batch 'Archive all' action is pending." },
     { section: "Tasks", name: "Make task a subheading / bold text", status: "done", desc: "Subheading support: bold section title with no checkbox or priority metadata chips; reorderable for itineraries." },
-    { section: "Tasks", name: "Set Reminder (Notification)", status: "todo", desc: "Web Notifications API integration and timed alarm reminder triggers." },
+    { section: "Tasks", name: "Set Reminder (Notification)", status: "done", desc: "Notification API integration with timed alarms, alert chimes, in-app toast, and quick presets." },
 
     // 2. Task Fields
     { section: "Task Fields", name: "Task name", status: "done", desc: "Text input with 120 character limit and required validation." },
@@ -797,7 +1022,8 @@
     // 3. Tabs
     { section: "Tabs", name: "User Defined (+ button)", status: "partial", desc: "User tabs can be added with '+'; app currently seeds 2 tabs instead of 1." },
     { section: "Tabs", name: "Tabs can be names or Emojis", status: "done", desc: "Full UTF-8 emoji and text string support for tab titles." },
-    { section: "Tabs", name: "Long-press on tabs", status: "done", desc: "Long-pressing user tabs triggers category action sheet for rename/delete." },
+    { section: "Tabs", name: "Long-press on tabs", status: "done", desc: "Long-pressing any tab triggers Tab Options sheet for compact list toggle, rename, and delete." },
+    { section: "Tabs", name: "Compact list per tab", status: "done", desc: "Long press any tab to toggle compact mode, hiding importance, time, and tab name chips." },
     { section: "Tabs", name: "Rename tab", status: "done", desc: "Category dialog renames tab and updates associations in real time." },
     { section: "Tabs", name: "Delete tab", status: "done", desc: "Safe delete confirmation; reassigns associated tasks to Uncategorized." },
     { section: "Tabs", name: "Change tab background colour", status: "todo", desc: "Color picker palette to assign custom tab colors." },
@@ -819,7 +1045,8 @@
     { section: "Filters Button", name: "Sort by Time", status: "done", desc: "Available in Sort & Filters sheet." },
     { section: "Filters Button", name: "Sort by Priority Score", status: "todo", desc: "Missing from filter sheet choices." },
     { section: "Filters Button", name: "Quick Wins", status: "done", desc: "Filters high importance (4-5) and short duration (<= 2h)." },
-    { section: "Filters Button", name: "Due Today", status: "todo", desc: "Dedicated filter for tasks due on today's date." },
+    { section: "Filters Button", name: "Due Today", status: "done", desc: "Dedicated filter for tasks due on today's date." },
+    { section: "Filters Button", name: "Due Tomorrow", status: "done", desc: "Dedicated filter for tasks due on tomorrow's date." },
     { section: "Filters Button", name: "Due Next 7 Days", status: "done", desc: "Filters tasks due in the upcoming week." },
 
     // 6. Settings button
@@ -841,8 +1068,8 @@
     { section: "User Interface", name: "Dark Mode in Settings", status: "done", desc: "Dark mode switch placed cleanly in Settings pane with System, Light, and Dark options." },
 
     // 9. Notifications
-    { section: "Notifications", name: "Due date reminders", status: "todo", desc: "In-app or system notifications when a task is due." },
-    { section: "Notifications", name: "Date and time set reminders", status: "todo", desc: "Custom scheduled alarms for specific task dates and times." },
+    { section: "Notifications", name: "Due date reminders", status: "done", desc: "System notifications and in-app alerts when tasks reach their reminder time." },
+    { section: "Notifications", name: "Date and time set reminders", status: "done", desc: "Custom scheduled alarms for specific task dates and times with quick presets." },
 
     // 10. Progressive Web App
     { section: "PWA", name: "Installation", status: "done", desc: "PWA installable banner and offline service worker." },
@@ -1023,10 +1250,29 @@
       render();
     });
 
-    bindLongPress(els.tabs, "[data-user-category]", (tab) => {
-      state.actionCategoryId = tab.dataset.tab;
-      const category = state.categories.find((item) => item.id === state.actionCategoryId);
-      document.getElementById("cat-actions-title").textContent = category?.name || "Category";
+    bindLongPress(els.tabs, "[data-tab]:not([data-tab='add'])", (tab) => {
+      state.actionTabId = tab.dataset.tab;
+      const isCompact = Boolean(state.settings.compactTabs?.[state.actionTabId]);
+      let tabTitle = "Tab Options";
+      if (state.actionTabId === "all") tabTitle = "All Tasks Tab";
+      else if (state.actionTabId === "archive") tabTitle = "Archive Tab";
+      else {
+        const category = state.categories.find((item) => item.id === state.actionTabId);
+        if (category) tabTitle = `${category.name} Tab`;
+      }
+      document.getElementById("cat-actions-title").textContent = tabTitle;
+
+      if (els.labelCompact) {
+        els.labelCompact.textContent = isCompact ? "Disable compact list" : "Compact list";
+      }
+      if (els.badgeCompact) {
+        els.badgeCompact.textContent = isCompact ? "ON" : "OFF";
+        els.badgeCompact.className = isCompact ? "action-badge active" : "action-badge";
+      }
+
+      const isUserCat = state.categories.some((item) => item.id === state.actionTabId);
+      if (els.actionRenameCat) els.actionRenameCat.hidden = !isUserCat;
+      if (els.actionDeleteCat) els.actionDeleteCat.hidden = !isUserCat;
       openOverlay(els.categoryActions);
     });
 
@@ -1044,6 +1290,9 @@
       const toggleSubBtn = els.taskActions.querySelector("[data-action='toggle-subheading']");
       if (toggleSubBtn) {
         toggleSubBtn.textContent = isSub ? "Convert to regular task" : "Convert to subheading";
+      }
+      if (els.actionTaskReminder) {
+        els.actionTaskReminder.hidden = isSub;
       }
       openOverlay(els.taskActions);
     });
@@ -1064,9 +1313,75 @@
       els.importanceValue.textContent = els.taskForm.elements.importance.value;
     });
 
+    document.querySelectorAll(".reminder-presets-row .preset-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const preset = btn.dataset.preset;
+        const now = new Date();
+        let target = new Date();
+
+        if (preset === "1h") {
+          target = new Date(now.getTime() + 60 * 60 * 1000);
+        } else if (preset === "3h") {
+          target = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+        } else if (preset === "tomorrow-9am") {
+          target.setDate(target.getDate() + 1);
+          target.setHours(9, 0, 0, 0);
+        } else if (preset === "due-9am") {
+          const dueDateVal = els.taskForm.elements.dueDate?.value;
+          if (dueDateVal) {
+            target = new Date(`${dueDateVal}T09:00:00`);
+          } else {
+            target.setDate(target.getDate() + 1);
+            target.setHours(9, 0, 0, 0);
+          }
+        }
+
+        const pad = (n) => String(n).padStart(2, "0");
+        const val = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(
+          target.getHours()
+        )}:${pad(target.getMinutes())}`;
+        if (els.reminderInput) {
+          els.reminderInput.value = val;
+        }
+      });
+    });
+
+    if (els.clearReminderBtn) {
+      els.clearReminderBtn.addEventListener("click", () => {
+        if (els.reminderInput) els.reminderInput.value = "";
+      });
+    }
+
+    if (els.requestNotifBtn) {
+      els.requestNotifBtn.addEventListener("click", async () => {
+        await requestNotificationPermission();
+      });
+    }
+
+    if (els.testNotifBtn) {
+      els.testNotifBtn.addEventListener("click", async () => {
+        if ("Notification" in window && Notification.permission !== "granted") {
+          await requestNotificationPermission();
+        }
+        fireTaskReminder({
+          id: "test-alert",
+          name: "Test Reminder Alert",
+          dueDate: todayISO(),
+          importance: 5,
+        });
+      });
+    }
+
+    if (els.toastClose) {
+      els.toastClose.addEventListener("click", () => {
+        if (els.reminderToast) els.reminderToast.hidden = true;
+      });
+    }
+
     els.taskForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const data = new FormData(els.taskForm);
+      const reminderAt = String(data.get("reminderAt") || "");
       const isSubheading = Boolean(els.taskForm.elements.isSubheading?.checked);
       const payload = {
         name: String(data.get("name") || "").trim(),
@@ -1074,16 +1389,28 @@
         estimatedTime: isSubheading ? 0 : Number(data.get("estimatedTime") || 1),
         dueDate: isSubheading ? "" : String(data.get("dueDate") || ""),
         categoryId: String(data.get("categoryId") || ""),
+        reminderAt: isSubheading ? "" : reminderAt,
         isSubheading,
       };
       if (!payload.name) return;
+
+      if (payload.reminderAt && "Notification" in window && Notification.permission === "default") {
+        requestNotificationPermission();
+      }
+
       if (state.editingTaskId) {
         const existing = state.tasks.find((task) => task.id === state.editingTaskId);
-        await put("tasks", { ...existing, ...payload });
+        const reminderChanged = existing?.reminderAt !== payload.reminderAt;
+        await put("tasks", {
+          ...existing,
+          ...payload,
+          reminderFired: reminderChanged ? false : Boolean(existing?.reminderFired),
+        });
       } else {
         await put("tasks", {
           id: uid(),
           ...payload,
+          reminderFired: false,
           completed: false,
           sortPosition: await nextSortPosition(),
         });
@@ -1091,6 +1418,7 @@
       state.tasks = await getAll("tasks");
       closeOverlays();
       render();
+      checkPendingReminders();
     });
 
     document.getElementById("task-cancel").addEventListener("click", closeOverlays);
@@ -1123,6 +1451,10 @@
       if (action === "edit") {
         closeOverlays();
         openTaskDialog(task);
+      } else if (action === "set-reminder") {
+        closeOverlays();
+        openTaskDialog(task);
+        setTimeout(() => els.reminderInput?.focus(), 150);
       } else if (action === "move") {
         closeOverlays();
         openMoveTaskSheet(task);
@@ -1168,10 +1500,24 @@
       els.moveTaskCancel.addEventListener("click", closeOverlays);
     }
 
-    els.categoryActions.addEventListener("click", (event) => {
+    els.categoryActions.addEventListener("click", async (event) => {
       const action = event.target.closest("[data-action]")?.dataset.action;
-      const category = state.categories.find((item) => item.id === state.actionCategoryId);
-      if (!action || !category) return;
+      if (!action) return;
+
+      if (action === "toggle-compact") {
+        closeOverlays();
+        state.settings.compactTabs = state.settings.compactTabs || {};
+        state.settings.compactTabs[state.actionTabId] = !state.settings.compactTabs[state.actionTabId];
+        if (state.settings.activeTab !== state.actionTabId) {
+          state.settings.activeTab = state.actionTabId;
+        }
+        await saveSettings();
+        render();
+        return;
+      }
+
+      const category = state.categories.find((item) => item.id === state.actionTabId);
+      if (!category) return;
       if (action === "rename") {
         closeOverlays();
         openCategoryDialog(category);
@@ -1225,6 +1571,11 @@
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
+    checkPendingReminders();
+    setInterval(checkPendingReminders, 15000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) checkPendingReminders();
+    });
   }
 
   init();

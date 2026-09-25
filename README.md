@@ -144,7 +144,7 @@ Feature list:
 - [x] **Move task (Moves to different tab)**: Direct "Move task" action in the task action sheet opens a destination tab picker to move tasks immediately between existing tabs.
 - [-] **Archive completed tasks (Moves to archive tab)**: *Partially Implemented* — "Archive" tab automatically isolates completed tasks; a batch "Archive all completed" button is pending.
 - [x] **Make task a subheading, bold text, useful for a holiday itinerary (no longer an actual task)**: Subheading toggle in task dialog and long-press action sheet renders bold section headers without checkbox or priority metadata chips; reorderable with drag-and-drop.
-- [ ] **Set Reminder (Notification)**: *Left to Implement* — Integration with Web Notifications API and reminder date/time scheduler.
+- [x] **Set Reminder (Notification)**: Web Notifications API integration with timed alerts, synthesized gentle audio chimes, in-app toast alerts, quick presets (+1h, +3h, tomorrow 9 AM, due date 9 AM), and settings controls.
 
 #### 2. Task Fields (Options when adding a task)
 - [x] **Task name**: Text input with 120 character limit and required validation.
@@ -158,7 +158,8 @@ Feature list:
 #### 3. Tabs
 - [-] **User Defined, initially just 1 tab and a '+' button**: *Partially Implemented* — User-defined tabs with '+' works; currently defaults to seeding "Personal" and "Work" instead of just 1 initial tab.
 - [x] **Tabs can be names or Emojis**: Supports unicode emojis and text names in tab labels.
-- [x] **Long-press on tabs**: Long-pressing user tabs opens the category action sheet.
+- [x] **Long-press on tabs**: Long-pressing any tab opens Tab Options sheet with "Compact list" toggle, rename, and delete actions.
+- [x] **Compact list per tab**: Long-pressing any tab allows toggling "Compact list" for that specific tab, which hides importance, estimated time, and tab name chips, displaying only the task name on the list.
 - [x] **Rename tab**: Modifies category name and updates all assigned tasks.
 - [x] **Delete tab**: Confirmation dialog; reassigns associated tasks to uncategorized so no tasks are lost.
 - [ ] **Change tab background colour**: *Left to Implement* — Add color picker to assign individual accent colors to tabs.
@@ -180,11 +181,12 @@ Feature list:
 - [x] **Sort by Time**: Option in Sort & Filters sheet.
 - [ ] **Sort by Priority Score**: *Left to Implement* — Missing from filter options.
 - [x] **Quick Wins**: Filters high importance (4-5) and short time (<= 2h).
-- [ ] **Due Today**: *Left to Implement* — Dedicated filter for tasks due on current date.
+- [x] **Due Today**: Dedicated filter for tasks scheduled for the current date.
+- [x] **Due Tomorrow**: Dedicated filter for tasks scheduled for tomorrow's date.
 - [x] **Due Next 7 Days**: Filter showing tasks due within the upcoming week.
 
 #### 6. Settings button
-- [x] **Settings button & modal**: Settings bottom sheet with dark mode segmented switch (System, Light, Dark), 6 Material Design colour theme palettes, local JSON backup export & restore, and version information.
+- [x] **Settings button & modal**: Settings bottom sheet with dark mode segmented switch (System, Light, Dark), 6 Material Design colour theme palettes, local JSON backup export & restore, version information, and notification controls.
 
 #### 7. Data Storage
 - [x] **Local Storage / IndexedDB**: Full offline schema with `tasks`, `categories`, and `settings` stores.
@@ -202,8 +204,8 @@ Feature list:
 - [x] **Dark Mode (Button hidden in settings)**: Fully functional dark/light/system theme switch relocated into the Settings pane.
 
 #### 9. Notifications
-- [ ] **Due date reminders**: *Left to Implement* — Background or in-app alerts when a task reaches its due date.
-- [ ] **Date and time set reminders**: *Left to Implement* — Specific timestamp reminder scheduling.
+- [x] **Due date reminders**: In-app toast alerts, polite Web Audio chime, and Web Notifications API alerts when tasks reach their scheduled time.
+- [x] **Date and time set reminders**: Custom date and time picker with preset buttons (+1 Hour, +3 Hours, Tomorrow 9 AM, Due Date 9 AM).
 
 #### 10. Progressive Web App (PWA)
 - [x] **Installation**: PWA installable via Chrome/Android prompts.

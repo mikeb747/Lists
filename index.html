@@ -78,6 +78,18 @@
           <span>Manual order</span>
         </label>
         <label class="choice">
+          <input type="radio" name="sortMode" value="today" />
+          <span>Due today</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="sortMode" value="tomorrow" />
+          <span>Due tomorrow</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="sortMode" value="due7" />
+          <span>Due next 7 days</span>
+        </label>
+        <label class="choice">
           <input type="radio" name="sortMode" value="importance" />
           <span>Sort by importance</span>
         </label>
@@ -88,10 +100,6 @@
         <label class="choice">
           <input type="radio" name="sortMode" value="quickWins" />
           <span>Quick wins</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="sortMode" value="due7" />
-          <span>Due next 7 days</span>
         </label>
         <label class="choice switch-row">
           <span>Hide completed</span>
@@ -166,6 +174,25 @@
         </div>
 
         <div class="settings-group">
+          <label class="settings-label">Reminders &amp; Notifications</label>
+          <div class="settings-item-btn" id="notif-settings-row" style="cursor: default;">
+            <div class="settings-item-left">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path fill="currentColor" d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+              </svg>
+              <div class="settings-item-text">
+                <span class="settings-item-title">Browser Notifications</span>
+                <span class="settings-item-subtitle" id="notif-perm-status">Checking status...</span>
+              </div>
+            </div>
+            <button type="button" id="btn-request-notif" class="btn-text-sm" style="margin-left: auto;">Enable</button>
+          </div>
+          <div class="settings-actions-row" style="margin-top: 8px;">
+            <button type="button" id="btn-test-notif" class="btn-text-outlined">Send Test Alert</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <label class="settings-label">Roadmap &amp; Specifications</label>
           <button type="button" id="btn-open-tracker" class="settings-item-btn">
             <div class="settings-item-left">
@@ -204,6 +231,7 @@
       <h2 id="task-actions-title">Task</h2>
       <div class="action-list">
         <button type="button" data-action="edit">Edit</button>
+        <button type="button" data-action="set-reminder" id="action-task-reminder">Set reminder</button>
         <button type="button" data-action="move" id="action-move-task">Move task</button>
         <button type="button" data-action="toggle-subheading" id="action-toggle-subheading">Toggle subheading</button>
         <button type="button" data-action="complete">Complete</button>
@@ -223,10 +251,14 @@
 
     <section id="sheet-category-actions" class="sheet" role="dialog" aria-labelledby="cat-actions-title" hidden>
       <div class="sheet-handle"></div>
-      <h2 id="cat-actions-title">Category</h2>
+      <h2 id="cat-actions-title">Tab Options</h2>
       <div class="action-list">
-        <button type="button" data-action="rename">Rename</button>
-        <button type="button" data-action="delete" class="danger">Delete</button>
+        <button type="button" data-action="toggle-compact" id="action-toggle-compact" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <span id="label-toggle-compact">Compact list</span>
+          <span id="badge-toggle-compact" class="action-badge">OFF</span>
+        </button>
+        <button type="button" data-action="rename" id="action-rename-cat">Rename</button>
+        <button type="button" data-action="delete" id="action-delete-cat" class="danger">Delete</button>
       </div>
     </section>
 
@@ -253,8 +285,21 @@
           </label>
           <label>
             Due date
-            <input type="date" name="dueDate" />
+            <input type="date" name="dueDate" id="task-due-date" />
           </label>
+          <div class="form-row-reminder">
+            <label for="task-reminder-input">Reminder (date &amp; time)</label>
+            <div class="reminder-input-wrap">
+              <input type="datetime-local" name="reminderAt" id="task-reminder-input" />
+              <button type="button" id="btn-clear-reminder" class="btn-text-sm" title="Clear reminder">Clear</button>
+            </div>
+            <div class="reminder-presets-row">
+              <button type="button" class="preset-chip" data-preset="1h">+1 Hour</button>
+              <button type="button" class="preset-chip" data-preset="3h">+3 Hours</button>
+              <button type="button" class="preset-chip" data-preset="tomorrow-9am">Tomorrow 9 AM</button>
+              <button type="button" class="preset-chip" data-preset="due-9am">Due Date 9 AM</button>
+            </div>
+          </div>
         </div>
         <label>
           Category
@@ -324,6 +369,15 @@
         <button type="button" id="tracker-close" class="btn-filled">Close</button>
       </div>
     </section>
+
+    <div id="reminder-toast" class="reminder-toast" role="alert" aria-live="assertive" hidden>
+      <div class="toast-icon">🔔</div>
+      <div class="toast-body">
+        <strong id="toast-title">Task Reminder</strong>
+        <p id="toast-msg">Due soon</p>
+      </div>
+      <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
+    </div>
 
     <script src="./app.js?v=1" defer></script>
   </body>
