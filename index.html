@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.4.2" />
+    <link rel="stylesheet" href="./styles.css?v=1.5.0" />
   </head>
   <body>
     <div id="app">
@@ -54,7 +54,19 @@
         </div>
       </header>
 
-      <nav class="tabs" id="category-tabs" aria-label="Categories"></nav>
+      <div class="tabs-wrapper" id="tabs-wrapper">
+        <button type="button" id="tab-scroll-left" class="tab-scroll-btn left" aria-label="Scroll tabs left" title="Scroll tabs left">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+          </svg>
+        </button>
+        <nav class="tabs" id="category-tabs" aria-label="Categories"></nav>
+        <button type="button" id="tab-scroll-right" class="tab-scroll-btn right" aria-label="Scroll tabs right" title="Scroll tabs right">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path fill="currentColor" d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+          </svg>
+        </button>
+      </div>
 
       <div id="install-bar" class="install-bar" hidden>
         <div class="install-card">
@@ -336,7 +348,7 @@
         </div>
 
         <div class="settings-footer">
-          <span class="settings-version">Lists v1.4.0 • Offline PWA</span>
+          <span class="settings-version">Lists v1.5.0 • Offline PWA</span>
         </div>
       </div>
     </section>
@@ -494,6 +506,6 @@
       <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <script type="module" src="./app.js?v=1.4.2"></script>
+    <script type="module" src="./app.js?v=1.5.0"></script>
   </body>
 </html>

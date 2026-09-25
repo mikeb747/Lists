@@ -106,6 +106,9 @@ const MOVE_CANCEL_PX = 10;
     bulkFeedback: document.getElementById("bulk-feedback-msg"),
     bulkCancelBtn: document.getElementById("bulk-paste-cancel"),
     bulkSubmitBtn: document.getElementById("bulk-paste-submit"),
+    tabsWrapper: document.getElementById("tabs-wrapper"),
+    tabScrollLeft: document.getElementById("tab-scroll-left"),
+    tabScrollRight: document.getElementById("tab-scroll-right"),
   };
 
   const state = {
@@ -113,6 +116,7 @@ const MOVE_CANCEL_PX = 10;
     tasks: [],
     categories: [],
     googleUser: null,
+    suppressTabClick: false,
     driveToken: null,
     settings: {
       sortMode: "manual",
@@ -347,6 +351,7 @@ const MOVE_CANCEL_PX = 10;
       `<button type="button" class="tab add" data-tab="add" aria-label="Add category">+</button>`,
     ];
     els.tabs.innerHTML = parts.join("");
+    updateTabScrollButtons();
   }
 
   function isTabCompact(tabId) {
@@ -1435,6 +1440,187 @@ const MOVE_CANCEL_PX = 10;
     });
   }
 
+  function updateTabScrollButtons() {
+    if (!els.tabs || !els.tabsWrapper || !els.tabScrollLeft || !els.tabScrollRight) return;
+    const { scrollLeft, scrollWidth, clientWidth } = els.tabs;
+    const hasOverflow = scrollWidth > clientWidth + 2;
+
+    els.tabsWrapper.classList.toggle("has-overflow", hasOverflow);
+
+    if (hasOverflow) {
+      els.tabScrollLeft.disabled = scrollLeft <= 2;
+      els.tabScrollRight.disabled = Math.ceil(scrollLeft + clientWidth) >= scrollWidth - 2;
+    } else {
+      els.tabScrollLeft.disabled = true;
+      els.tabScrollRight.disabled = true;
+    }
+  }
+
+  function setupTabScroll() {
+    if (!els.tabScrollLeft || !els.tabScrollRight || !els.tabs) return;
+
+    els.tabScrollLeft.addEventListener("click", () => {
+      els.tabs.scrollBy({ left: -220, behavior: "smooth" });
+    });
+
+    els.tabScrollRight.addEventListener("click", () => {
+      els.tabs.scrollBy({ left: 220, behavior: "smooth" });
+    });
+
+    els.tabs.addEventListener("scroll", updateTabScrollButtons, { passive: true });
+    window.addEventListener("resize", updateTabScrollButtons, { passive: true });
+    updateTabScrollButtons();
+  }
+
+  function setupTabDrag() {
+    let previewEl = null;
+    let dragTab = null;
+    let startX = 0;
+    let startY = 0;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let isDragging = false;
+    let autoScrollRaf = null;
+
+    const stopAutoScroll = () => {
+      if (autoScrollRaf) {
+        cancelAnimationFrame(autoScrollRaf);
+        autoScrollRaf = null;
+      }
+    };
+
+    const onMove = (e) => {
+      if (!dragTab) return;
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      if (!isDragging) {
+        if (Math.hypot(deltaX, deltaY) > 6) {
+          isDragging = true;
+          dragTab.classList.add("tab-dragging");
+
+          const rect = dragTab.getBoundingClientRect();
+          previewEl = document.createElement("div");
+          previewEl.className = "tab-ghost-preview";
+          previewEl.textContent = dragTab.textContent;
+          previewEl.style.width = `${rect.width}px`;
+          previewEl.style.height = `${rect.height}px`;
+          previewEl.style.left = `${e.clientX - dragOffsetX}px`;
+          previewEl.style.top = `${e.clientY - dragOffsetY}px`;
+          document.body.appendChild(previewEl);
+        } else {
+          return;
+        }
+      }
+
+      if (e.cancelable) e.preventDefault();
+
+      if (previewEl) {
+        previewEl.style.left = `${e.clientX - dragOffsetX}px`;
+        previewEl.style.top = `${e.clientY - dragOffsetY}px`;
+      }
+
+      const userTabs = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].filter(
+        (t) => t !== dragTab
+      );
+
+      for (const otherTab of userTabs) {
+        const rect = otherTab.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        if (e.clientX < midX) {
+          otherTab.before(dragTab);
+          break;
+        } else if (otherTab === userTabs[userTabs.length - 1] && e.clientX >= midX) {
+          otherTab.after(dragTab);
+          break;
+        }
+      }
+
+      const containerRect = els.tabs.getBoundingClientRect();
+      const edgeThreshold = 45;
+      stopAutoScroll();
+
+      if (e.clientX < containerRect.left + edgeThreshold) {
+        const speed = Math.max(3, Math.min(15, (containerRect.left + edgeThreshold - e.clientX) / 2));
+        const scrollLoop = () => {
+          if (!isDragging) return;
+          els.tabs.scrollLeft -= speed;
+          updateTabScrollButtons();
+          autoScrollRaf = requestAnimationFrame(scrollLoop);
+        };
+        autoScrollRaf = requestAnimationFrame(scrollLoop);
+      } else if (e.clientX > containerRect.right - edgeThreshold) {
+        const speed = Math.max(3, Math.min(15, (e.clientX - (containerRect.right - edgeThreshold)) / 2));
+        const scrollLoop = () => {
+          if (!isDragging) return;
+          els.tabs.scrollLeft += speed;
+          updateTabScrollButtons();
+          autoScrollRaf = requestAnimationFrame(scrollLoop);
+        };
+        autoScrollRaf = requestAnimationFrame(scrollLoop);
+      }
+    };
+
+    const endDrag = async () => {
+      stopAutoScroll();
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", endDrag);
+      document.removeEventListener("pointercancel", endDrag);
+
+      if (previewEl) {
+        previewEl.remove();
+        previewEl = null;
+      }
+
+      if (isDragging && dragTab) {
+        dragTab.classList.remove("tab-dragging");
+        state.suppressTabClick = true;
+        setTimeout(() => {
+          state.suppressTabClick = false;
+        }, 120);
+
+        const reorderedIds = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].map(
+          (t) => t.dataset.tab
+        );
+
+        for (let i = 0; i < reorderedIds.length; i++) {
+          const catId = reorderedIds[i];
+          const cat = state.categories.find((c) => c.id === catId);
+          if (cat) {
+            cat.sortPosition = i;
+            await put("categories", cat);
+          }
+        }
+
+        state.categories.sort((a, b) => a.sortPosition - b.sortPosition);
+        renderTabs();
+        updateTabScrollButtons();
+      }
+
+      dragTab = null;
+      isDragging = false;
+    };
+
+    els.tabs.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      const tab = e.target.closest(".tab[data-user-category='true']");
+      if (!tab) return;
+
+      dragTab = tab;
+      isDragging = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const rect = tab.getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+
+      document.addEventListener("pointermove", onMove, { passive: false });
+      document.addEventListener("pointerup", endDrag);
+      document.addEventListener("pointercancel", endDrag);
+    });
+  }
+
   const FEATURES = [
     // 1. Tasks
     { section: "Tasks", name: "Add task button (+) with task list", status: "done", desc: "FAB button opens task creation dialog, persists to IndexedDB, renders responsive cards in the list." },
@@ -1460,6 +1646,8 @@ const MOVE_CANCEL_PX = 10;
     { section: "Tabs", name: "User Defined (+ button)", status: "partial", desc: "User tabs can be added with '+'; app currently seeds 2 tabs instead of 1." },
     { section: "Tabs", name: "Tabs can be names or Emojis", status: "done", desc: "Full UTF-8 emoji and text string support for tab titles." },
     { section: "Tabs", name: "Long-press on tabs", status: "done", desc: "Long-pressing any tab triggers Tab Options sheet for compact list toggle, rename, and delete." },
+    { section: "Tabs", name: "Drag and drop tab positions left/right", status: "done", desc: "Drag and drop the horizontal position of each category tab left and right with persistence." },
+    { section: "Tabs", name: "Desktop tab scroll buttons (< & >)", status: "done", desc: "Scroll arrow buttons on computer screens when there are more tabs than fit." },
     { section: "Tabs", name: "Compact list per tab", status: "done", desc: "Long press any tab to toggle compact mode, hiding importance, time, and tab name chips." },
     { section: "Tabs", name: "Rename tab", status: "done", desc: "Category dialog renames tab and updates associations in real time." },
     { section: "Tabs", name: "Delete tab", status: "done", desc: "Safe delete confirmation; reassigns associated tasks to Uncategorized." },
@@ -1737,6 +1925,7 @@ const MOVE_CANCEL_PX = 10;
     });
 
     els.tabs.addEventListener("click", (event) => {
+      if (state.suppressTabClick) return;
       const tab = event.target.closest("[data-tab]");
       if (!tab) return;
       if (tab.dataset.tab === "add") {
@@ -2095,6 +2284,8 @@ const MOVE_CANCEL_PX = 10;
     });
 
     setupDrag();
+    setupTabDrag();
+    setupTabScroll();
     setupSwipeActions();
   }
 

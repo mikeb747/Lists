@@ -214,20 +214,76 @@ body {
   outline: none;
 }
 
-.tabs {
+.tabs-wrapper {
   position: sticky;
   top: calc(var(--bar-height) + var(--safe-top) - 8px);
   z-index: 19;
   display: flex;
+  align-items: center;
+  position: relative;
+  background: var(--md-surface);
+  padding: 0 4px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 0 16px 12px;
-  background: var(--md-surface);
+  padding: 0 12px;
+  background: transparent;
   scrollbar-width: none;
+  scroll-behavior: smooth;
+  user-select: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tabs::-webkit-scrollbar {
   display: none;
+}
+
+.tab-scroll-btn {
+  display: none;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 50%;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  cursor: pointer;
+  place-items: center;
+  transition: opacity 0.2s, background-color 0.15s, color 0.15s, border-color 0.15s;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.tab-scroll-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tab-scroll-btn:hover:not(:disabled) {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border-color: var(--md-primary);
+}
+
+.tab-scroll-btn:disabled {
+  opacity: 0.22;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* For computer screen or hover devices, show < & > scroll buttons when tabs overflow */
+@media (min-width: 600px), (hover: hover) and (pointer: fine) {
+  .tabs-wrapper.has-overflow .tab-scroll-btn {
+    display: grid;
+  }
 }
 
 .tab {
@@ -243,6 +299,43 @@ body {
   cursor: pointer;
   user-select: none;
   touch-action: manipulation;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.tab[data-user-category="true"] {
+  cursor: grab;
+}
+
+.tab[data-user-category="true"]:active {
+  cursor: grabbing;
+}
+
+.tab.tab-dragging {
+  opacity: 0.3 !important;
+  border: 1.5px dashed var(--md-primary) !important;
+  transform: scale(0.95);
+}
+
+.tab-ghost-preview {
+  position: fixed;
+  z-index: 10001;
+  pointer-events: none;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.16);
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border: 2px solid var(--md-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(1.06) rotate(1deg);
+  transform-origin: center center;
+  opacity: 0.96;
+  white-space: nowrap;
+  will-change: left, top;
 }
 
 .tab.active {
