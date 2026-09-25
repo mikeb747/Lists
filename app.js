@@ -436,6 +436,9 @@ const MOVE_CANCEL_PX = 10;
           </button>
         </div>
       `;
+    } else if (isCompact) {
+      // In compact view: hide the tick button to complete tasks, so completion is swipe-only
+      rightControls = "";
     } else {
       // In regular tabs: standard complete checkbox button
       rightControls = `
@@ -446,6 +449,8 @@ const MOVE_CANCEL_PX = 10;
         </button>
       `;
     }
+
+    const hasControlsClass = rightControls ? " has-controls" : "";
 
     return `
       <div class="task-item-wrapper" data-id="${task.id}">
@@ -464,7 +469,7 @@ const MOVE_CANCEL_PX = 10;
           </span>
         </div>
         <!-- Foreground Card -->
-        <article class="task-card${doneClass}${compactClass}" data-id="${task.id}">
+        <article class="task-card${doneClass}${compactClass}${hasControlsClass}" data-id="${task.id}">
           <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
             <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
           </button>

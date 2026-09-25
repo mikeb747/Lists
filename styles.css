@@ -1464,22 +1464,47 @@ html[data-theme="dark"] .drive-status-message.error {
 }
 
 /* Compact List View */
-.compact-list .task-card {
-  padding: 8px 12px;
-  min-height: 44px;
+.compact-list .task-card:not(.subheading),
+.task-card.compact:not(.subheading) {
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 14px 10px 8px;
 }
 
-.compact-list .task-card .task-meta {
+.compact-list .task-card.has-controls:not(.subheading),
+.task-card.compact.has-controls:not(.subheading) {
+  grid-template-columns: 28px 1fr auto;
+}
+
+.compact-list .task-card .task-meta,
+.task-card.compact .task-meta {
   display: none !important;
 }
 
-.compact-list .task-card .task-body {
-  gap: 2px;
+.compact-list .task-card:not(.subheading) .task-body,
+.task-card.compact:not(.subheading) .task-body {
+  display: flex;
+  align-items: center;
+  min-height: 100%;
+  padding: 0;
+  margin: 0;
 }
 
-.compact-list .task-card .task-name {
-  font-size: 0.9375rem;
+.compact-list .task-card:not(.subheading) .task-name,
+.task-card.compact:not(.subheading) .task-name {
+  margin: 0 !important;
+  padding: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
   line-height: 1.35;
+  color: var(--md-on-surface);
+}
+
+.compact-list .task-card:not(.subheading) .drag-handle,
+.task-card.compact:not(.subheading) .drag-handle {
+  height: 32px;
+  align-self: center;
 }
 
 .action-badge {
