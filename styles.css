@@ -1466,15 +1466,30 @@ html[data-theme="dark"] .drive-status-message.error {
 /* Compact List View */
 .compact-list .task-card:not(.subheading),
 .task-card.compact:not(.subheading) {
-  grid-template-columns: 28px 1fr;
-  align-items: center;
-  min-height: 48px;
-  padding: 10px 14px 10px 8px;
+  grid-template-columns: 28px 1fr !important;
+  align-items: center !important;
+  min-height: 48px !important;
+  padding: 10px 14px 10px 8px !important;
 }
 
 .compact-list .task-card.has-controls:not(.subheading),
 .task-card.compact.has-controls:not(.subheading) {
-  grid-template-columns: 28px 1fr auto;
+  grid-template-columns: 28px 1fr auto !important;
+}
+
+/* Force hide complete button in compact view as requested */
+.compact-list .task-card .task-complete,
+.compact-list .task-complete,
+.task-card.compact .task-complete,
+.task-card.compact [data-complete],
+.compact-list [data-complete] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .compact-list .task-card .task-meta,
@@ -1484,27 +1499,31 @@ html[data-theme="dark"] .drive-status-message.error {
 
 .compact-list .task-card:not(.subheading) .task-body,
 .task-card.compact:not(.subheading) .task-body {
-  display: flex;
-  align-items: center;
-  min-height: 100%;
-  padding: 0;
-  margin: 0;
+  display: flex !important;
+  align-items: center !important;
+  align-self: center !important;
+  min-height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .compact-list .task-card:not(.subheading) .task-name,
 .task-card.compact:not(.subheading) .task-name {
   margin: 0 !important;
-  padding: 0;
-  font-size: 0.95rem;
-  font-weight: 500;
-  line-height: 1.35;
-  color: var(--md-on-surface);
+  padding: 0 !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  color: var(--md-on-surface) !important;
+  display: block !important;
 }
 
 .compact-list .task-card:not(.subheading) .drag-handle,
 .task-card.compact:not(.subheading) .drag-handle {
-  height: 32px;
-  align-self: center;
+  height: 28px !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .action-badge {

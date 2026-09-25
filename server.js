@@ -8,11 +8,13 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = 3000;
 
-// Set headers for service worker if requested
+// Set headers to prevent stale asset caching on mobile and desktop
 app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   if (req.path === '/sw.js') {
     res.setHeader('Service-Worker-Allowed', '/');
-    res.setHeader('Cache-Control', 'no-cache');
   }
   next();
 });

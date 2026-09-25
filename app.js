@@ -349,10 +349,23 @@ const MOVE_CANCEL_PX = 10;
     els.tabs.innerHTML = parts.join("");
   }
 
+  function isTabCompact(tabId) {
+    if (!state.settings.compactTabs) return false;
+    if (state.settings.compactTabs[tabId]) return true;
+    const cat = state.categories.find(
+      (c) => c.id === tabId || c.name.toLowerCase() === String(tabId).toLowerCase()
+    );
+    if (cat) {
+      if (state.settings.compactTabs[cat.id]) return true;
+      if (state.settings.compactTabs[cat.name]) return true;
+    }
+    return false;
+  }
+
   function tabButton(id, label, active, userCategory = false) {
     const activeClass = active ? " active" : "";
     const catAttr = userCategory ? " data-user-category='true'" : "";
-    const isCompact = Boolean(state.settings.compactTabs?.[id]);
+    const isCompact = isTabCompact(id);
     const compactAttr = isCompact ? " data-compact='true'" : "";
     return `<button type="button" class="tab${activeClass}" data-tab="${id}"${catAttr}${compactAttr}>${escapeHtml(
       label
@@ -372,7 +385,7 @@ const MOVE_CANCEL_PX = 10;
     const manual = state.settings.sortMode === "manual" && state.settings.activeTab !== "archive";
     els.caption.textContent = SORT_LABELS[state.settings.sortMode] || "Manual order";
 
-    const isCompact = Boolean(state.settings.compactTabs?.[state.settings.activeTab]);
+    const isCompact = isTabCompact(state.settings.activeTab);
     els.list.classList.toggle("compact-list", isCompact);
 
     if (!tasks.length) {
@@ -1737,7 +1750,7 @@ const MOVE_CANCEL_PX = 10;
 
     bindLongPress(els.tabs, "[data-tab]:not([data-tab='add'])", (tab) => {
       state.actionTabId = tab.dataset.tab;
-      const isCompact = Boolean(state.settings.compactTabs?.[state.actionTabId]);
+      const isCompact = isTabCompact(state.actionTabId);
       let tabTitle = "Tab Options";
       if (state.actionTabId === "all") tabTitle = "All Tasks Tab";
       else if (state.actionTabId === "archive") tabTitle = "Archive Tab";
@@ -2032,7 +2045,15 @@ const MOVE_CANCEL_PX = 10;
       if (action === "toggle-compact") {
         closeOverlays();
         state.settings.compactTabs = state.settings.compactTabs || {};
-        state.settings.compactTabs[state.actionTabId] = !state.settings.compactTabs[state.actionTabId];
+        const nextVal = !isTabCompact(state.actionTabId);
+        state.settings.compactTabs[state.actionTabId] = nextVal;
+        const cat = state.categories.find(
+          (c) => c.id === state.actionTabId || c.name.toLowerCase() === String(state.actionTabId).toLowerCase()
+        );
+        if (cat) {
+          state.settings.compactTabs[cat.id] = nextVal;
+          state.settings.compactTabs[cat.name] = nextVal;
+        }
         if (state.settings.activeTab !== state.actionTabId) {
           state.settings.activeTab = state.actionTabId;
         }
@@ -2262,7 +2283,9 @@ const MOVE_CANCEL_PX = 10;
       if (state.settings.theme === "system") applyTheme();
     });
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+      navigator.serviceWorker.register("./sw.js").then((reg) => {
+        reg.update();
+      }).catch(() => {});
     }
     checkPendingReminders();
     setInterval(checkPendingReminders, 15000);
