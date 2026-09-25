@@ -80,6 +80,8 @@ const MOVE_CANCEL_PX = 10;
     actionCompactBtn: document.getElementById("action-toggle-compact"),
     labelCompact: document.getElementById("label-toggle-compact"),
     badgeCompact: document.getElementById("badge-toggle-compact"),
+    actionMoveTabLeft: document.getElementById("action-move-tab-left"),
+    actionMoveTabRight: document.getElementById("action-move-tab-right"),
     actionRenameCat: document.getElementById("action-rename-cat"),
     actionDeleteCat: document.getElementById("action-delete-cat"),
     reminderToast: document.getElementById("reminder-toast"),
@@ -1513,15 +1515,53 @@ const MOVE_CANCEL_PX = 10;
     updateTabScrollButtons();
   }
 
-  function setupTabDrag() {
-    let previewEl = null;
-    let placeholderEl = null;
-    let dragTab = null;
+  function openTabOptionsSheet(tabId) {
+    state.actionTabId = tabId;
+    const isCompact = isTabCompact(state.actionTabId);
+    let tabTitle = "Tab Options";
+    if (state.actionTabId === "all") tabTitle = "All Tasks Tab";
+    else if (state.actionTabId === "archive") tabTitle = "Archive Tab";
+    else {
+      const category = state.categories.find((item) => item.id === state.actionTabId);
+      if (category) tabTitle = `${category.name} Tab`;
+    }
+    document.getElementById("cat-actions-title").textContent = tabTitle;
+
+    if (els.labelCompact) {
+      els.labelCompact.textContent = isCompact ? "Disable compact list" : "Compact list";
+    }
+    if (els.badgeCompact) {
+      els.badgeCompact.textContent = isCompact ? "ON" : "OFF";
+      els.badgeCompact.className = isCompact ? "action-badge active" : "action-badge";
+    }
+
+    const isUserCat = state.categories.some((item) => item.id === state.actionTabId);
+    if (els.actionRenameCat) els.actionRenameCat.hidden = !isUserCat;
+    if (els.actionDeleteCat) els.actionDeleteCat.hidden = !isUserCat;
+
+    const catIndex = state.categories.findIndex((item) => item.id === state.actionTabId);
+    if (els.actionMoveTabLeft) {
+      els.actionMoveTabLeft.hidden = !isUserCat;
+      els.actionMoveTabLeft.disabled = catIndex <= 0;
+    }
+    if (els.actionMoveTabRight) {
+      els.actionMoveTabRight.hidden = !isUserCat;
+      els.actionMoveTabRight.disabled = catIndex < 0 || catIndex >= state.categories.length - 1;
+    }
+
+    openOverlay(els.categoryActions);
+  }
+
+  function setupTabInteraction() {
+    let longPressTimer = null;
+    let longPressTriggered = false;
+    let dragActive = false;
+    let activeTab = null;
     let startX = 0;
     let startY = 0;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
-    let isDragging = false;
+    let previewEl = null;
     let autoScrollRaf = null;
 
     const stopAutoScroll = () => {
@@ -1531,24 +1571,30 @@ const MOVE_CANCEL_PX = 10;
       }
     };
 
-    // Smooth FLIP animation: records old positions of sibling tabs and animates them sliding to their new positions
-    const movePlaceholderWithFLIP = (targetTab, placeBefore = true) => {
-      if (!placeholderEl || !targetTab || placeholderEl === targetTab) return;
+    const clearLongPress = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
 
-      const tabsToAnimate = [...els.tabs.querySelectorAll(".tab:not(.tab-origin-hidden)")];
+    // Smooth FLIP animation: records sibling positions and smoothly glides them into place
+    const moveTabWithFLIP = (targetTab, placeBefore = true) => {
+      if (!activeTab || !targetTab || activeTab === targetTab) return;
+
+      const userTabs = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")];
       const firstPositions = new Map();
-      tabsToAnimate.forEach((tab) => {
+      userTabs.forEach((tab) => {
         firstPositions.set(tab, tab.getBoundingClientRect().left);
       });
 
       if (placeBefore) {
-        targetTab.before(placeholderEl);
+        targetTab.before(activeTab);
       } else {
-        targetTab.after(placeholderEl);
+        targetTab.after(activeTab);
       }
 
-      // Invert and play smooth transition on all affected tabs
-      tabsToAnimate.forEach((tab) => {
+      userTabs.forEach((tab) => {
         const oldLeft = firstPositions.get(tab);
         if (oldLeft === undefined) return;
         const newLeft = tab.getBoundingClientRect().left;
@@ -1558,55 +1604,48 @@ const MOVE_CANCEL_PX = 10;
           tab.style.transition = "none";
           tab.style.transform = `translateX(${deltaX}px)`;
           void tab.offsetWidth; // force reflow
-          tab.style.transition = "transform 0.22s cubic-bezier(0.2, 0, 0, 1)";
+          tab.style.transition = "transform 0.2s cubic-bezier(0.2, 0, 0, 1)";
           tab.style.transform = "";
         }
       });
     };
 
-    const onMove = (e) => {
-      if (!dragTab || state.longPressFired) return;
+    const onPointerMove = (e) => {
+      if (!activeTab || longPressTriggered) return;
+
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
       const dist = Math.hypot(deltaX, deltaY);
 
-      if (!isDragging) {
-        // Cancel long press as soon as movement is detected
-        if (dist > 6) {
-          cancelActiveLongPress();
-        }
+      // Cancel long press immediately on any movement greater than 5px
+      if (dist > 5) {
+        clearLongPress();
+      }
 
-        // Start drag if movement is clearly horizontal and exceeds 8px
-        if (dist > 8 && Math.abs(deltaX) > Math.abs(deltaY) * 0.7) {
-          cancelActiveLongPress();
-          if (state.longPressFired) return;
+      // Initiate horizontal drag for custom categories once movement exceeds 7px
+      if (!dragActive && activeTab.dataset.userCategory === "true") {
+        if (dist > 7 && Math.abs(deltaX) > Math.abs(deltaY) * 0.6) {
+          dragActive = true;
+          state.suppressTabClick = true;
 
-          isDragging = true;
-          state.isDraggingTab = true;
+          const rect = activeTab.getBoundingClientRect();
 
-          const rect = dragTab.getBoundingClientRect();
+          // activeTab remains right in the DOM as the visible landing slot
+          activeTab.classList.add("tab-dragging-placeholder");
 
-          // Create explicit placeholder slot showing where the tab will land
-          placeholderEl = document.createElement("div");
-          placeholderEl.className = "tab tab-placeholder-slot";
-          placeholderEl.style.width = `${rect.width}px`;
-          placeholderEl.style.height = `${rect.height}px`;
-          dragTab.before(placeholderEl);
-          dragTab.classList.add("tab-origin-hidden");
-
-          // Create floating preview
+          // Floating preview pill following the pointer
           previewEl = document.createElement("div");
           previewEl.className = "tab-ghost-preview";
-          previewEl.textContent = dragTab.textContent;
+          previewEl.textContent = activeTab.textContent;
           previewEl.style.width = `${rect.width}px`;
           previewEl.style.height = `${rect.height}px`;
           previewEl.style.left = `${e.clientX - dragOffsetX}px`;
           previewEl.style.top = `${e.clientY - dragOffsetY}px`;
           document.body.appendChild(previewEl);
-        } else {
-          return;
         }
       }
+
+      if (!dragActive) return;
 
       if (e.cancelable) e.preventDefault();
 
@@ -1615,9 +1654,9 @@ const MOVE_CANCEL_PX = 10;
         previewEl.style.top = `${e.clientY - dragOffsetY}px`;
       }
 
-      // Check against user category tabs for reordering
+      // Reorder among sibling user category tabs
       const userTabs = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].filter(
-        (t) => t !== dragTab && t !== placeholderEl
+        (t) => t !== activeTab
       );
 
       for (let i = 0; i < userTabs.length; i++) {
@@ -1626,36 +1665,36 @@ const MOVE_CANCEL_PX = 10;
         const midX = rect.left + rect.width / 2;
 
         if (e.clientX < midX) {
-          if (placeholderEl.nextElementSibling !== otherTab) {
-            movePlaceholderWithFLIP(otherTab, true);
+          if (activeTab.nextElementSibling !== otherTab) {
+            moveTabWithFLIP(otherTab, true);
           }
           break;
         } else if (i === userTabs.length - 1 && e.clientX >= midX) {
-          if (placeholderEl.previousElementSibling !== otherTab) {
-            movePlaceholderWithFLIP(otherTab, false);
+          if (activeTab.previousElementSibling !== otherTab) {
+            moveTabWithFLIP(otherTab, false);
           }
           break;
         }
       }
 
-      // Auto-scroll when dragging near horizontal edges
+      // Smooth auto-scroll when dragging near horizontal bounds
       const containerRect = els.tabs.getBoundingClientRect();
-      const edgeThreshold = 45;
+      const edgeThreshold = 44;
       stopAutoScroll();
 
       if (e.clientX < containerRect.left + edgeThreshold) {
-        const speed = Math.max(3, Math.min(15, (containerRect.left + edgeThreshold - e.clientX) / 2));
+        const speed = Math.max(3, Math.min(16, (containerRect.left + edgeThreshold - e.clientX) / 2));
         const scrollLoop = () => {
-          if (!isDragging) return;
+          if (!dragActive) return;
           els.tabs.scrollLeft -= speed;
           updateTabScrollButtons();
           autoScrollRaf = requestAnimationFrame(scrollLoop);
         };
         autoScrollRaf = requestAnimationFrame(scrollLoop);
       } else if (e.clientX > containerRect.right - edgeThreshold) {
-        const speed = Math.max(3, Math.min(15, (e.clientX - (containerRect.right - edgeThreshold)) / 2));
+        const speed = Math.max(3, Math.min(16, (e.clientX - (containerRect.right - edgeThreshold)) / 2));
         const scrollLoop = () => {
-          if (!isDragging) return;
+          if (!dragActive) return;
           els.tabs.scrollLeft += speed;
           updateTabScrollButtons();
           autoScrollRaf = requestAnimationFrame(scrollLoop);
@@ -1664,45 +1703,35 @@ const MOVE_CANCEL_PX = 10;
       }
     };
 
-    const endDrag = async () => {
+    const onPointerUp = async (e) => {
       stopAutoScroll();
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", endDrag);
-      document.removeEventListener("pointercancel", endDrag);
+      clearLongPress();
 
-      state.longPressFired = false;
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerUp);
 
-      if (isDragging && dragTab && placeholderEl) {
-        // Place dragTab exactly at the placeholder's landing slot
-        placeholderEl.before(dragTab);
-        dragTab.classList.remove("tab-origin-hidden");
+      const tabToCommit = activeTab;
 
-        // Animate ghost preview flying into the landing slot
+      if (dragActive && tabToCommit) {
         if (previewEl) {
-          const targetRect = dragTab.getBoundingClientRect();
-          previewEl.style.transition = "all 0.18s cubic-bezier(0.2, 0, 0, 1)";
-          previewEl.style.left = `${targetRect.left}px`;
-          previewEl.style.top = `${targetRect.top}px`;
-          previewEl.style.transform = "scale(1) rotate(0deg)";
-          previewEl.style.opacity = "0.7";
+          const rect = tabToCommit.getBoundingClientRect();
+          previewEl.style.transition = "all 0.15s cubic-bezier(0.2, 0, 0, 1)";
+          previewEl.style.left = `${rect.left}px`;
+          previewEl.style.top = `${rect.top}px`;
+          previewEl.style.transform = "scale(1)";
         }
-
-        state.suppressTabClick = true;
-        setTimeout(() => {
-          state.suppressTabClick = false;
-        }, 150);
 
         setTimeout(async () => {
           if (previewEl) {
             previewEl.remove();
             previewEl = null;
           }
-          if (placeholderEl) {
-            placeholderEl.remove();
-            placeholderEl = null;
+          if (tabToCommit) {
+            tabToCommit.classList.remove("tab-dragging-placeholder");
           }
 
-          // Persist the new category order in IndexedDB
+          // Persist the reordered positions to IndexedDB
           const reorderedIds = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].map(
             (t) => t.dataset.tab
           );
@@ -1719,48 +1748,72 @@ const MOVE_CANCEL_PX = 10;
           state.categories.sort((a, b) => a.sortPosition - b.sortPosition);
           renderTabs();
           updateTabScrollButtons();
-          state.isDraggingTab = false;
-        }, 180);
+
+          setTimeout(() => {
+            state.suppressTabClick = false;
+          }, 100);
+        }, 150);
       } else {
         if (previewEl) {
           previewEl.remove();
           previewEl = null;
         }
-        if (placeholderEl) {
-          placeholderEl.remove();
-          placeholderEl = null;
+        if (tabToCommit) {
+          tabToCommit.classList.remove("tab-dragging-placeholder");
         }
-        if (dragTab) {
-          dragTab.classList.remove("tab-origin-hidden");
+
+        // Tap handling (when neither dragged nor long-pressed)
+        if (!longPressTriggered && tabToCommit && !state.suppressTabClick) {
+          const tabId = tabToCommit.dataset.tab;
+          if (tabId === "add") {
+            openCategoryDialog(null);
+          } else if (tabId) {
+            state.settings.activeTab = tabId;
+            saveSettings();
+            render();
+          }
         }
-        state.isDraggingTab = false;
       }
 
-      dragTab = null;
-      isDragging = false;
+      dragActive = false;
+      activeTab = null;
+      longPressTriggered = false;
     };
 
     els.tabs.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
-      // Do not drag if category actions dialog or any modal is open
       if (els.categoryActions && !els.categoryActions.hidden) return;
 
-      const tab = e.target.closest(".tab[data-user-category='true']");
+      const tab = e.target.closest(".tab");
       if (!tab) return;
 
-      dragTab = tab;
-      isDragging = false;
-      state.isDraggingTab = false;
+      activeTab = tab;
       startX = e.clientX;
       startY = e.clientY;
+      dragActive = false;
+      longPressTriggered = false;
 
       const rect = tab.getBoundingClientRect();
       dragOffsetX = e.clientX - rect.left;
       dragOffsetY = e.clientY - rect.top;
 
-      document.addEventListener("pointermove", onMove, { passive: false });
-      document.addEventListener("pointerup", endDrag);
-      document.addEventListener("pointercancel", endDrag);
+      // Start long-press timer (500ms) only for selectable tabs
+      if (tab.dataset.tab !== "add") {
+        longPressTimer = setTimeout(() => {
+          if (dragActive) return;
+          longPressTriggered = true;
+          state.suppressTabClick = true;
+          if (navigator.vibrate) navigator.vibrate(20);
+          openTabOptionsSheet(tab.dataset.tab);
+          setTimeout(() => {
+            state.suppressTabClick = false;
+          }, 300);
+        }, 500);
+      }
+
+      document.addEventListener("pointermove", onPointerMove, { passive: false });
+      document.addEventListener("pointerup", onPointerUp);
+      document.addEventListener("pointercancel", onPointerUp);
     });
   }
 
@@ -2080,32 +2133,6 @@ const MOVE_CANCEL_PX = 10;
       render();
     });
 
-    bindLongPress(els.tabs, "[data-tab]:not([data-tab='add'])", (tab) => {
-      state.actionTabId = tab.dataset.tab;
-      const isCompact = isTabCompact(state.actionTabId);
-      let tabTitle = "Tab Options";
-      if (state.actionTabId === "all") tabTitle = "All Tasks Tab";
-      else if (state.actionTabId === "archive") tabTitle = "Archive Tab";
-      else {
-        const category = state.categories.find((item) => item.id === state.actionTabId);
-        if (category) tabTitle = `${category.name} Tab`;
-      }
-      document.getElementById("cat-actions-title").textContent = tabTitle;
-
-      if (els.labelCompact) {
-        els.labelCompact.textContent = isCompact ? "Disable compact list" : "Compact list";
-      }
-      if (els.badgeCompact) {
-        els.badgeCompact.textContent = isCompact ? "ON" : "OFF";
-        els.badgeCompact.className = isCompact ? "action-badge active" : "action-badge";
-      }
-
-      const isUserCat = state.categories.some((item) => item.id === state.actionTabId);
-      if (els.actionRenameCat) els.actionRenameCat.hidden = !isUserCat;
-      if (els.actionDeleteCat) els.actionDeleteCat.hidden = !isUserCat;
-      openOverlay(els.categoryActions);
-    });
-
     bindLongPress(els.list, ".task-card", (card, event) => {
       if (
         event.target.closest(".drag-handle") ||
@@ -2394,6 +2421,40 @@ const MOVE_CANCEL_PX = 10;
         return;
       }
 
+      if (action === "move-left") {
+        closeOverlays();
+        const catIndex = state.categories.findIndex((c) => c.id === state.actionTabId);
+        if (catIndex > 0) {
+          const temp = state.categories[catIndex];
+          state.categories[catIndex] = state.categories[catIndex - 1];
+          state.categories[catIndex - 1] = temp;
+          for (let i = 0; i < state.categories.length; i++) {
+            state.categories[i].sortPosition = i;
+            await put("categories", state.categories[i]);
+          }
+          renderTabs();
+          updateTabScrollButtons();
+        }
+        return;
+      }
+
+      if (action === "move-right") {
+        closeOverlays();
+        const catIndex = state.categories.findIndex((c) => c.id === state.actionTabId);
+        if (catIndex >= 0 && catIndex < state.categories.length - 1) {
+          const temp = state.categories[catIndex];
+          state.categories[catIndex] = state.categories[catIndex + 1];
+          state.categories[catIndex + 1] = temp;
+          for (let i = 0; i < state.categories.length; i++) {
+            state.categories[i].sortPosition = i;
+            await put("categories", state.categories[i]);
+          }
+          renderTabs();
+          updateTabScrollButtons();
+        }
+        return;
+      }
+
       const category = state.categories.find((item) => item.id === state.actionTabId);
       if (!category) return;
       if (action === "rename") {
@@ -2427,7 +2488,7 @@ const MOVE_CANCEL_PX = 10;
     });
 
     setupDrag();
-    setupTabDrag();
+    setupTabInteraction();
     setupTabScroll();
     setupSwipeActions();
   }

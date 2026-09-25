@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.5.2" />
+    <link rel="stylesheet" href="./styles.css?v=1.5.3" />
   </head>
   <body>
     <div id="app">
@@ -348,7 +348,7 @@
         </div>
 
         <div class="settings-footer">
-          <span class="settings-version">Lists v1.5.2 • Offline PWA</span>
+          <span class="settings-version">Lists v1.5.3 • Offline PWA</span>
         </div>
       </div>
     </section>
@@ -384,6 +384,8 @@
           <span id="label-toggle-compact">Compact list</span>
           <span id="badge-toggle-compact" class="action-badge">OFF</span>
         </button>
+        <button type="button" data-action="move-left" id="action-move-tab-left">Move tab left</button>
+        <button type="button" data-action="move-right" id="action-move-tab-right">Move tab right</button>
         <button type="button" data-action="rename" id="action-rename-cat">Rename</button>
         <button type="button" data-action="delete" id="action-delete-cat" class="danger">Delete</button>
       </div>
@@ -506,6 +508,6 @@
       <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <script type="module" src="./app.js?v=1.5.2"></script>
+    <script type="module" src="./app.js?v=1.5.3"></script>
   </body>
 </html>
