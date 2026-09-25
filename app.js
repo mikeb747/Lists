@@ -789,7 +789,7 @@ const MOVE_CANCEL_PX = 10;
 
   async function handleGoogleConnect() {
     try {
-      setDriveStatus("Connecting to Google...", "normal");
+      setDriveStatus("Opening Google sign-in window...", "normal");
       const res = await signInWithGoogle();
       if (res?.user) {
         state.googleUser = res.user;
@@ -798,8 +798,16 @@ const MOVE_CANCEL_PX = 10;
         setDriveStatus(`Connected to ${res.user.email} ✓`, "success");
       }
     } catch (err) {
-      console.error("Google connect failed:", err);
-      setDriveStatus(err.message || "Failed to connect to Google", "error");
+      console.error("Google connect error:", err);
+      let msg = err.message || "Failed to connect to Google";
+      if (err.code === "auth/popup-blocked") {
+        msg = "Popup was blocked by your browser. Please allow popups for this site.";
+      } else if (err.code === "auth/popup-closed-by-user") {
+        msg = "Sign-in popup closed before completing. Click to try again.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        msg = "This app's domain is not yet authorized in Firebase Console.";
+      }
+      setDriveStatus(msg, "error");
     }
   }
 

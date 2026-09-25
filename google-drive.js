@@ -30,6 +30,9 @@ export async function initGoogleAuth(onAuthChangeCallback) {
     authInstance = getAuth(app);
     googleProvider = new GoogleAuthProvider();
     SCOPES.forEach((scope) => googleProvider.addScope(scope));
+    googleProvider.setCustomParameters({
+      prompt: "select_account"
+    });
 
     onAuthStateChanged(authInstance, (user) => {
       currentFirebaseUser = user;
