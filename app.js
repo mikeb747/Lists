@@ -117,6 +117,8 @@ const MOVE_CANCEL_PX = 10;
     categories: [],
     googleUser: null,
     suppressTabClick: false,
+    isDraggingTab: false,
+    longPressFired: false,
     driveToken: null,
     settings: {
       sortMode: "manual",
@@ -1317,6 +1319,20 @@ const MOVE_CANCEL_PX = 10;
     await persistTasks(updated);
   }
 
+  let activeLongPressTimer = null;
+  let clearActiveLongPress = null;
+
+  function cancelActiveLongPress() {
+    if (activeLongPressTimer) {
+      window.clearTimeout(activeLongPressTimer);
+      activeLongPressTimer = null;
+    }
+    if (clearActiveLongPress) {
+      clearActiveLongPress();
+      clearActiveLongPress = null;
+    }
+  }
+
   function bindLongPress(root, selector, onLongPress) {
     let timer = null;
     let startX = 0;
@@ -1327,20 +1343,40 @@ const MOVE_CANCEL_PX = 10;
       if (timer) window.clearTimeout(timer);
       timer = null;
       target = null;
+      if (activeLongPressTimer === timer) {
+        activeLongPressTimer = null;
+      }
     };
 
     root.addEventListener("pointerdown", (event) => {
+      if (state.isDraggingTab) return;
+      if (els.categoryActions && !els.categoryActions.hidden) return;
+
       const hit = event.target.closest(selector);
       if (!hit || event.button) return;
+
+      cancelActiveLongPress();
       startX = event.clientX;
       startY = event.clientY;
       target = hit;
+
+      clearActiveLongPress = () => {
+        if (timer) window.clearTimeout(timer);
+        timer = null;
+        target = null;
+      };
+
       timer = window.setTimeout(() => {
         const current = target;
         clear();
+        clearActiveLongPress = null;
+        if (state.isDraggingTab) return;
+        state.longPressFired = true;
         if (navigator.vibrate) navigator.vibrate(20);
         onLongPress(current, event);
       }, LONG_PRESS_MS);
+
+      activeLongPressTimer = timer;
     });
 
     root.addEventListener("pointermove", (event) => {
@@ -1350,11 +1386,15 @@ const MOVE_CANCEL_PX = 10;
         Math.abs(event.clientY - startY) > MOVE_CANCEL_PX
       ) {
         clear();
+        clearActiveLongPress = null;
       }
     });
 
     ["pointerup", "pointercancel", "pointerleave"].forEach((name) => {
-      root.addEventListener(name, clear);
+      root.addEventListener(name, () => {
+        clear();
+        clearActiveLongPress = null;
+      });
     });
   }
 
@@ -1474,6 +1514,7 @@ const MOVE_CANCEL_PX = 10;
 
   function setupTabDrag() {
     let previewEl = null;
+    let placeholderEl = null;
     let dragTab = null;
     let startX = 0;
     let startY = 0;
@@ -1489,17 +1530,70 @@ const MOVE_CANCEL_PX = 10;
       }
     };
 
+    // Smooth FLIP animation: records old positions of sibling tabs and animates them sliding to their new positions
+    const movePlaceholderWithFLIP = (targetTab, placeBefore = true) => {
+      if (!placeholderEl || !targetTab || placeholderEl === targetTab) return;
+
+      const tabsToAnimate = [...els.tabs.querySelectorAll(".tab:not(.tab-origin-hidden)")];
+      const firstPositions = new Map();
+      tabsToAnimate.forEach((tab) => {
+        firstPositions.set(tab, tab.getBoundingClientRect().left);
+      });
+
+      if (placeBefore) {
+        targetTab.before(placeholderEl);
+      } else {
+        targetTab.after(placeholderEl);
+      }
+
+      // Invert and play smooth transition on all affected tabs
+      tabsToAnimate.forEach((tab) => {
+        const oldLeft = firstPositions.get(tab);
+        if (oldLeft === undefined) return;
+        const newLeft = tab.getBoundingClientRect().left;
+        const deltaX = oldLeft - newLeft;
+
+        if (Math.abs(deltaX) > 1) {
+          tab.style.transition = "none";
+          tab.style.transform = `translateX(${deltaX}px)`;
+          void tab.offsetWidth; // force reflow
+          tab.style.transition = "transform 0.22s cubic-bezier(0.2, 0, 0, 1)";
+          tab.style.transform = "";
+        }
+      });
+    };
+
     const onMove = (e) => {
-      if (!dragTab) return;
+      if (!dragTab || state.longPressFired) return;
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
+      const dist = Math.hypot(deltaX, deltaY);
 
       if (!isDragging) {
-        if (Math.hypot(deltaX, deltaY) > 6) {
+        // Cancel long press as soon as movement is detected
+        if (dist > 6) {
+          cancelActiveLongPress();
+        }
+
+        // Start drag if movement is clearly horizontal and exceeds 8px
+        if (dist > 8 && Math.abs(deltaX) > Math.abs(deltaY) * 0.7) {
+          cancelActiveLongPress();
+          if (state.longPressFired) return;
+
           isDragging = true;
-          dragTab.classList.add("tab-dragging");
+          state.isDraggingTab = true;
 
           const rect = dragTab.getBoundingClientRect();
+
+          // Create explicit placeholder slot showing where the tab will land
+          placeholderEl = document.createElement("div");
+          placeholderEl.className = "tab tab-placeholder-slot";
+          placeholderEl.style.width = `${rect.width}px`;
+          placeholderEl.style.height = `${rect.height}px`;
+          dragTab.before(placeholderEl);
+          dragTab.classList.add("tab-origin-hidden");
+
+          // Create floating preview
           previewEl = document.createElement("div");
           previewEl.className = "tab-ghost-preview";
           previewEl.textContent = dragTab.textContent;
@@ -1520,22 +1614,30 @@ const MOVE_CANCEL_PX = 10;
         previewEl.style.top = `${e.clientY - dragOffsetY}px`;
       }
 
+      // Check against user category tabs for reordering
       const userTabs = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].filter(
-        (t) => t !== dragTab
+        (t) => t !== dragTab && t !== placeholderEl
       );
 
-      for (const otherTab of userTabs) {
+      for (let i = 0; i < userTabs.length; i++) {
+        const otherTab = userTabs[i];
         const rect = otherTab.getBoundingClientRect();
         const midX = rect.left + rect.width / 2;
+
         if (e.clientX < midX) {
-          otherTab.before(dragTab);
+          if (placeholderEl.nextElementSibling !== otherTab) {
+            movePlaceholderWithFLIP(otherTab, true);
+          }
           break;
-        } else if (otherTab === userTabs[userTabs.length - 1] && e.clientX >= midX) {
-          otherTab.after(dragTab);
+        } else if (i === userTabs.length - 1 && e.clientX >= midX) {
+          if (placeholderEl.previousElementSibling !== otherTab) {
+            movePlaceholderWithFLIP(otherTab, false);
+          }
           break;
         }
       }
 
+      // Auto-scroll when dragging near horizontal edges
       const containerRect = els.tabs.getBoundingClientRect();
       const edgeThreshold = 45;
       stopAutoScroll();
@@ -1567,34 +1669,70 @@ const MOVE_CANCEL_PX = 10;
       document.removeEventListener("pointerup", endDrag);
       document.removeEventListener("pointercancel", endDrag);
 
-      if (previewEl) {
-        previewEl.remove();
-        previewEl = null;
-      }
+      state.longPressFired = false;
 
-      if (isDragging && dragTab) {
-        dragTab.classList.remove("tab-dragging");
+      if (isDragging && dragTab && placeholderEl) {
+        // Place dragTab exactly at the placeholder's landing slot
+        placeholderEl.before(dragTab);
+        dragTab.classList.remove("tab-origin-hidden");
+
+        // Animate ghost preview flying into the landing slot
+        if (previewEl) {
+          const targetRect = dragTab.getBoundingClientRect();
+          previewEl.style.transition = "all 0.18s cubic-bezier(0.2, 0, 0, 1)";
+          previewEl.style.left = `${targetRect.left}px`;
+          previewEl.style.top = `${targetRect.top}px`;
+          previewEl.style.transform = "scale(1) rotate(0deg)";
+          previewEl.style.opacity = "0.7";
+        }
+
         state.suppressTabClick = true;
         setTimeout(() => {
           state.suppressTabClick = false;
-        }, 120);
+        }, 150);
 
-        const reorderedIds = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].map(
-          (t) => t.dataset.tab
-        );
-
-        for (let i = 0; i < reorderedIds.length; i++) {
-          const catId = reorderedIds[i];
-          const cat = state.categories.find((c) => c.id === catId);
-          if (cat) {
-            cat.sortPosition = i;
-            await put("categories", cat);
+        setTimeout(async () => {
+          if (previewEl) {
+            previewEl.remove();
+            previewEl = null;
           }
-        }
+          if (placeholderEl) {
+            placeholderEl.remove();
+            placeholderEl = null;
+          }
 
-        state.categories.sort((a, b) => a.sortPosition - b.sortPosition);
-        renderTabs();
-        updateTabScrollButtons();
+          // Persist the new category order in IndexedDB
+          const reorderedIds = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].map(
+            (t) => t.dataset.tab
+          );
+
+          for (let i = 0; i < reorderedIds.length; i++) {
+            const catId = reorderedIds[i];
+            const cat = state.categories.find((c) => c.id === catId);
+            if (cat) {
+              cat.sortPosition = i;
+              await put("categories", cat);
+            }
+          }
+
+          state.categories.sort((a, b) => a.sortPosition - b.sortPosition);
+          renderTabs();
+          updateTabScrollButtons();
+          state.isDraggingTab = false;
+        }, 180);
+      } else {
+        if (previewEl) {
+          previewEl.remove();
+          previewEl = null;
+        }
+        if (placeholderEl) {
+          placeholderEl.remove();
+          placeholderEl = null;
+        }
+        if (dragTab) {
+          dragTab.classList.remove("tab-origin-hidden");
+        }
+        state.isDraggingTab = false;
       }
 
       dragTab = null;
@@ -1603,11 +1741,15 @@ const MOVE_CANCEL_PX = 10;
 
     els.tabs.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
+      // Do not drag if category actions dialog or any modal is open
+      if (els.categoryActions && !els.categoryActions.hidden) return;
+
       const tab = e.target.closest(".tab[data-user-category='true']");
       if (!tab) return;
 
       dragTab = tab;
       isDragging = false;
+      state.isDraggingTab = false;
       startX = e.clientX;
       startY = e.clientY;
 

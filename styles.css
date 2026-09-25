@@ -310,10 +310,48 @@ body {
   cursor: grabbing;
 }
 
-.tab.tab-dragging {
-  opacity: 0.3 !important;
-  border: 1.5px dashed var(--md-primary) !important;
-  transform: scale(0.95);
+.tab.tab-origin-hidden {
+  display: none !important;
+}
+
+/* Subtle, clearly visible landing placeholder slot */
+.tab.tab-placeholder-slot {
+  border: 2px dashed var(--md-primary) !important;
+  background: var(--md-primary-container) !important;
+  opacity: 0.65 !important;
+  box-shadow: 0 0 0 2px rgba(103, 80, 164, 0.2), inset 0 0 10px rgba(103, 80, 164, 0.15) !important;
+  color: var(--md-on-primary-container) !important;
+  pointer-events: none;
+  cursor: grabbing;
+  transform: scale(0.96);
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease;
+  animation: tabPulseSlot 1.5s ease-in-out infinite;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.tab.tab-placeholder-slot::after {
+  content: "↓";
+  position: absolute;
+  color: var(--md-on-primary-container);
+  font-size: 0.95rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+@keyframes tabPulseSlot {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
 }
 
 .tab-ghost-preview {
@@ -321,7 +359,7 @@ body {
   z-index: 10001;
   pointer-events: none;
   border-radius: 20px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), 0 4px 10px rgba(0, 0, 0, 0.16);
   background: var(--md-primary-container);
   color: var(--md-on-primary-container);
   border: 2px solid var(--md-primary);
@@ -331,11 +369,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transform: scale(1.06) rotate(1deg);
+  transform: scale(1.08) rotate(1.5deg);
   transform-origin: center center;
-  opacity: 0.96;
+  opacity: 0.98;
   white-space: nowrap;
-  will-change: left, top;
+  will-change: left, top, transform;
 }
 
 .tab.active {
