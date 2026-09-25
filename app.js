@@ -83,6 +83,21 @@
 
   let deferredPrompt = null;
 
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (typeof updateInstallUI === "function") {
+      updateInstallUI();
+    }
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    if (typeof updateInstallUI === "function") {
+      updateInstallUI();
+    }
+  });
+
   function uid() {
     return crypto.randomUUID();
   }
@@ -378,10 +393,10 @@
       if (els.installBtn) els.installBtn.hidden = true;
       if (els.installBar) els.installBar.hidden = true;
       if (els.settingsInstallStatus) {
-        els.settingsInstallStatus.textContent = "Lists is installed on this device";
+        els.settingsInstallStatus.textContent = "Lists is installed on this device ✓";
       }
-      if (els.settingsInstallBtn) {
-        els.settingsInstallBtn.style.opacity = "0.7";
+      if (els.settingsInstallTitle) {
+        els.settingsInstallTitle.textContent = "App Installed";
       }
       return;
     }
@@ -392,47 +407,69 @@
       if (els.settingsInstallStatus) {
         els.settingsInstallStatus.textContent = "Ready to install as an app";
       }
-      if (els.settingsInstallBtn) {
-        els.settingsInstallBtn.style.opacity = "1";
+      if (els.settingsInstallTitle) {
+        els.settingsInstallTitle.textContent = "Install App";
       }
     } else {
-      if (els.installBtn) els.installBtn.hidden = true;
-      if (els.installBar) els.installBar.hidden = true;
+      if (els.installBtn) els.installBtn.hidden = false;
+      if (els.installBar) els.installBar.hidden = false;
       const isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
       if (els.settingsInstallStatus) {
         els.settingsInstallStatus.textContent = isIOS
           ? "Tap Share ⎋ then 'Add to Home Screen'"
-          : "Available in Chrome / Edge";
+          : "Tap for installation options";
+      }
+      if (els.settingsInstallTitle) {
+        els.settingsInstallTitle.textContent = "Install App";
       }
     }
   }
 
   async function handleInstallPrompt() {
-    if (!deferredPrompt) {
-      const isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-      if (isIOS) {
-        confirmAction({
-          title: "Install on iOS",
-          message: "To install Lists on your iPhone or iPad, tap the Share icon ⎋ at the bottom of Safari, then choose 'Add to Home Screen'.",
-          okLabel: "Got it",
-          onConfirm: () => {},
-        });
-      } else {
-        confirmAction({
-          title: "Install Lists App",
-          message: "To install Lists as a standalone PWA, open this page in Google Chrome or Microsoft Edge and choose 'Install Lists' from the address bar or settings.",
-          okLabel: "Got it",
-          onConfirm: () => {},
-        });
+    if (deferredPrompt) {
+      closeOverlays();
+      try {
+        const promptEvent = deferredPrompt;
+        deferredPrompt = null;
+        await promptEvent.prompt();
+        await promptEvent.userChoice;
+      } catch (err) {
+        console.warn("Install prompt error:", err);
       }
+      updateInstallUI();
       return;
     }
-    deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-    if (choice?.outcome === "accepted") {
-      deferredPrompt = null;
+
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+
+    if (isStandalone) {
+      confirmAction({
+        title: "App Already Installed",
+        message: "Lists is already installed as a standalone app on your device.",
+        okLabel: "OK",
+        onConfirm: () => {},
+      });
+      return;
     }
-    updateInstallUI();
+
+    const isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    if (isIOS) {
+      confirmAction({
+        title: "Install on iOS",
+        message: "To install Lists on your iPhone or iPad, tap the Share icon ⎋ in Safari, then choose 'Add to Home Screen'.",
+        okLabel: "Got it",
+        onConfirm: () => {},
+      });
+    } else {
+      confirmAction({
+        title: "Install Lists App",
+        message: "To install Lists as a standalone app, open Chrome's menu (⋮ at top right) → 'Save and share' → 'Install Lists' or 'Install and create shortcut'. You can also click the install icon in Chrome's address bar.",
+        okLabel: "Got it",
+        onConfirm: () => {},
+      });
+    }
   }
 
   function exportData() {
@@ -953,22 +990,8 @@
     }
 
     if (els.settingsInstallBtn) {
-      els.settingsInstallBtn.addEventListener("click", () => {
-        closeOverlays();
-        handleInstallPrompt();
-      });
+      els.settingsInstallBtn.addEventListener("click", handleInstallPrompt);
     }
-
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      updateInstallUI();
-    });
-
-    window.addEventListener("appinstalled", () => {
-      deferredPrompt = null;
-      updateInstallUI();
-    });
 
     if (els.importBtn && els.importFile) {
       els.importBtn.addEventListener("click", () => els.importFile.click());
