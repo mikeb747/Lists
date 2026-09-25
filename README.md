@@ -115,5 +115,5 @@ Feature list:
       Home screen icon
       PWA Components
       manifest.json
-  service-worker.js
-  custom 192x192 and 512x512 icons
+      service-worker.js
+      custom 192x192 and 512x512 icons
