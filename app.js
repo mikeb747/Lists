@@ -96,6 +96,16 @@ const MOVE_CANCEL_PX = 10;
     driveUserName: document.getElementById("drive-user-name"),
     driveUserEmail: document.getElementById("drive-user-email"),
     driveSyncStatus: document.getElementById("drive-sync-status"),
+    bulkPasteBtn: document.getElementById("btn-bulk-paste"),
+    bulkPasteSheet: document.getElementById("sheet-bulk-paste"),
+    bulkCategorySelect: document.getElementById("bulk-category-select"),
+    bulkTextarea: document.getElementById("bulk-paste-textarea"),
+    bulkPasteClipBtn: document.getElementById("btn-paste-clipboard"),
+    bulkClearBtn: document.getElementById("btn-bulk-clear"),
+    bulkCounter: document.getElementById("bulk-item-counter"),
+    bulkFeedback: document.getElementById("bulk-feedback-msg"),
+    bulkCancelBtn: document.getElementById("bulk-paste-cancel"),
+    bulkSubmitBtn: document.getElementById("bulk-paste-submit"),
   };
 
   const state = {
@@ -1018,6 +1028,7 @@ const MOVE_CANCEL_PX = 10;
     if (els.settingsSheet) els.settingsSheet.hidden = true;
     if (els.moveSheet) els.moveSheet.hidden = true;
     if (els.trackerDialog) els.trackerDialog.hidden = true;
+    if (els.bulkPasteSheet) els.bulkPasteSheet.hidden = true;
     state.confirmHandler = null;
   }
 
@@ -1046,6 +1057,144 @@ const MOVE_CANCEL_PX = 10;
       .join("");
 
     openOverlay(els.moveSheet);
+  }
+
+  function parseBulkLines(text) {
+    if (!text) return [];
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .map((line) => line.replace(/^[-*•\–\—]\s+/, ""))
+      .filter((line) => line.length > 0);
+  }
+
+  function updateBulkCounter() {
+    if (!els.bulkTextarea || !els.bulkCounter || !els.bulkSubmitBtn) return;
+    const lines = parseBulkLines(els.bulkTextarea.value);
+    const count = lines.length;
+    if (count === 0) {
+      els.bulkCounter.textContent = "0 tasks";
+      els.bulkSubmitBtn.disabled = true;
+      els.bulkSubmitBtn.textContent = "Add Tasks";
+    } else if (count === 1) {
+      els.bulkCounter.textContent = "1 task";
+      els.bulkSubmitBtn.disabled = false;
+      els.bulkSubmitBtn.textContent = "Add 1 Task";
+    } else {
+      els.bulkCounter.textContent = `${count} tasks`;
+      els.bulkSubmitBtn.disabled = false;
+      els.bulkSubmitBtn.textContent = `Add ${count} Tasks`;
+    }
+  }
+
+  function showBulkFeedback(msg, type = "info") {
+    if (!els.bulkFeedback) return;
+    els.bulkFeedback.textContent = msg;
+    els.bulkFeedback.className = `bulk-feedback-msg ${type}`;
+    els.bulkFeedback.hidden = false;
+  }
+
+  function fillBulkCategorySelect() {
+    if (!els.bulkCategorySelect) return;
+    const active = state.settings.activeTab;
+    const isSpecial = active === "all" || active === "archive";
+
+    let defaultCatId = "";
+    if (!isSpecial && state.categories.some((c) => c.id === active)) {
+      defaultCatId = active;
+    } else if (state.categories.length > 0) {
+      defaultCatId = state.categories[0].id;
+    }
+
+    const options = state.categories.map((c) => {
+      const isSelected = c.id === defaultCatId;
+      return `<option value="${c.id}" ${isSelected ? "selected" : ""}>${escapeHtml(c.name)}</option>`;
+    });
+
+    options.push(
+      `<option value="" ${defaultCatId === "" ? "selected" : ""}>Uncategorized</option>`
+    );
+
+    els.bulkCategorySelect.innerHTML = options.join("");
+  }
+
+  function openBulkPasteSheet() {
+    fillBulkCategorySelect();
+    if (els.bulkFeedback) els.bulkFeedback.hidden = true;
+    updateBulkCounter();
+    openOverlay(els.bulkPasteSheet);
+    setTimeout(() => {
+      if (els.bulkTextarea) els.bulkTextarea.focus();
+    }, 120);
+  }
+
+  async function pasteFromClipboard() {
+    if (!els.bulkTextarea) return;
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        throw new Error("Clipboard API not supported in this browser context.");
+      }
+      const clipText = await navigator.clipboard.readText();
+      if (!clipText || !clipText.trim()) {
+        showBulkFeedback("Clipboard is empty or contains non-text content.", "info");
+        return;
+      }
+      const existing = els.bulkTextarea.value;
+      if (existing.trim()) {
+        els.bulkTextarea.value = existing.endsWith("\n") ? existing + clipText : existing + "\n" + clipText;
+      } else {
+        els.bulkTextarea.value = clipText;
+      }
+      updateBulkCounter();
+      const count = parseBulkLines(clipText).length;
+      showBulkFeedback(`Pasted ${count} ${count === 1 ? "item" : "items"} from clipboard ✓`, "success");
+      els.bulkTextarea.focus();
+    } catch (err) {
+      console.warn("Clipboard read failed:", err);
+      showBulkFeedback("Clipboard access was blocked by browser. You can click and hold the text box to paste directly.", "info");
+      els.bulkTextarea.focus();
+    }
+  }
+
+  async function handleBulkSubmit() {
+    if (!els.bulkTextarea) return;
+    const lines = parseBulkLines(els.bulkTextarea.value);
+    if (!lines.length) return;
+
+    const targetCategoryId = els.bulkCategorySelect?.value || "";
+    const startSortPosition = await nextSortPosition();
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      await put("tasks", {
+        id: uid(),
+        name: line,
+        importance: 3,
+        estimatedTime: 1,
+        dueDate: "",
+        categoryId: targetCategoryId,
+        reminderAt: "",
+        reminderFired: false,
+        completed: false,
+        sortPosition: startSortPosition + i,
+      });
+    }
+
+    state.tasks = await getAll("tasks");
+
+    // If currently on archive tab, switch to the target tab so new tasks are visible
+    if (state.settings.activeTab === "archive") {
+      state.settings.activeTab = targetCategoryId || "all";
+      await saveSettings();
+    } else if (targetCategoryId && state.settings.activeTab !== "all" && state.settings.activeTab !== targetCategoryId) {
+      state.settings.activeTab = targetCategoryId;
+      await saveSettings();
+    }
+
+    els.bulkTextarea.value = "";
+    updateBulkCounter();
+    closeOverlays();
+    render();
   }
 
   function fillCategorySelect(selectedId) {
@@ -1336,6 +1485,7 @@ const MOVE_CANCEL_PX = 10;
     { section: "User Interface", name: "Large Touch Targets", status: "done", desc: "Minimum 44px-48px touch targets for touch accuracy." },
     { section: "User Interface", name: "Modern Material Design styling", status: "done", desc: "Rounded cards, MD3 color system, FAB, elevation." },
     { section: "User Interface", name: "Dark Mode in Settings", status: "done", desc: "Dark mode switch placed cleanly in Settings pane with System, Light, and Dark options." },
+    { section: "User Interface", name: "Bulk Paste Multiple Tasks", status: "done", desc: "Batch paste multiline items directly into any list tab with clipboard integration and item counter." },
 
     // 9. Notifications
     { section: "Notifications", name: "Due date reminders", status: "done", desc: "System notifications and in-app alerts when tasks reach their reminder time." },
@@ -1447,6 +1597,46 @@ const MOVE_CANCEL_PX = 10;
         renderTracker(btn.dataset.filter);
       });
     });
+
+    if (els.bulkPasteBtn) {
+      els.bulkPasteBtn.addEventListener("click", openBulkPasteSheet);
+    }
+
+    if (els.bulkTextarea) {
+      els.bulkTextarea.addEventListener("input", updateBulkCounter);
+      els.bulkTextarea.addEventListener("paste", () => setTimeout(updateBulkCounter, 10));
+      els.bulkTextarea.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          if (els.bulkSubmitBtn && !els.bulkSubmitBtn.disabled) {
+            handleBulkSubmit();
+          }
+        }
+      });
+    }
+
+    if (els.bulkPasteClipBtn) {
+      els.bulkPasteClipBtn.addEventListener("click", pasteFromClipboard);
+    }
+
+    if (els.bulkClearBtn) {
+      els.bulkClearBtn.addEventListener("click", () => {
+        if (els.bulkTextarea) {
+          els.bulkTextarea.value = "";
+          updateBulkCounter();
+          if (els.bulkFeedback) els.bulkFeedback.hidden = true;
+          els.bulkTextarea.focus();
+        }
+      });
+    }
+
+    if (els.bulkCancelBtn) {
+      els.bulkCancelBtn.addEventListener("click", closeOverlays);
+    }
+
+    if (els.bulkSubmitBtn) {
+      els.bulkSubmitBtn.addEventListener("click", handleBulkSubmit);
+    }
 
     document.getElementById("btn-filter").addEventListener("click", () => {
       syncFilterSheet();

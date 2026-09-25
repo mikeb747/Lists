@@ -27,6 +27,14 @@
           <p id="sort-caption" class="sort-caption">Manual order</p>
         </div>
         <div class="bar-actions">
+          <button type="button" id="btn-bulk-paste" class="icon-btn" aria-label="Paste multiple tasks" title="Paste multiple tasks">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"
+              />
+            </svg>
+          </button>
           <button type="button" id="btn-filter" class="icon-btn" aria-label="Sort and filters">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -80,6 +88,51 @@
     </div>
 
     <div id="scrim" class="scrim" hidden></div>
+
+    <section id="sheet-bulk-paste" class="sheet sheet-bulk" role="dialog" aria-modal="true" aria-labelledby="bulk-paste-title" hidden>
+      <div class="sheet-handle"></div>
+      <div class="sheet-header-row">
+        <div>
+          <h2 id="bulk-paste-title">Paste Multiple Tasks</h2>
+          <p class="sheet-note" id="bulk-paste-subtitle">Each line of text will be created as a separate task.</p>
+        </div>
+      </div>
+
+      <div class="bulk-form">
+        <label class="bulk-form-label">
+          <span>Target List Tab</span>
+          <select id="bulk-category-select" class="bulk-select"></select>
+        </label>
+
+        <div class="bulk-textarea-wrap">
+          <textarea
+            id="bulk-paste-textarea"
+            class="bulk-textarea"
+            rows="7"
+            placeholder="Paste list of items here (separated by line breaks)&#10;e.g.&#10;Chapter 1: The Beginning&#10;Chapter 2: Deep Dive&#10;Chapter 3: Conclusion"
+            aria-label="List of items separated by line breaks"
+          ></textarea>
+        </div>
+
+        <div class="bulk-toolbar">
+          <button type="button" id="btn-paste-clipboard" class="btn-paste-action" title="Paste text from your clipboard">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path fill="currentColor" d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/>
+            </svg>
+            <span>Paste from clipboard</span>
+          </button>
+          <button type="button" id="btn-bulk-clear" class="btn-text-sm" title="Clear text">Clear</button>
+          <span id="bulk-item-counter" class="bulk-counter-pill">0 tasks</span>
+        </div>
+
+        <div id="bulk-feedback-msg" class="bulk-feedback-msg" hidden></div>
+
+        <div class="dialog-actions" style="margin-top: 14px;">
+          <button type="button" id="bulk-paste-cancel" class="btn-text">Cancel</button>
+          <button type="button" id="bulk-paste-submit" class="btn-filled" disabled>Add Tasks</button>
+        </div>
+      </div>
+    </section>
 
     <section id="sheet-filter" class="sheet" role="dialog" aria-modal="true" aria-labelledby="filter-title" hidden>
       <div class="sheet-handle"></div>
@@ -283,7 +336,7 @@
         </div>
 
         <div class="settings-footer">
-          <span class="settings-version">Lists v1.3.0 • Offline PWA</span>
+          <span class="settings-version">Lists v1.4.0 • Offline PWA</span>
         </div>
       </div>
     </section>

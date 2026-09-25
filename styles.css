@@ -1646,4 +1646,127 @@ html[data-theme="dark"] .drive-status-message.error {
   }
 }
 
+/* Bulk Paste Multiple Tasks Sheet */
+.sheet-bulk {
+  max-width: 520px;
+}
+
+.bulk-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bulk-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--md-on-surface-variant);
+}
+
+.bulk-select {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--md-outline);
+  border-radius: var(--radius-sm);
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.bulk-textarea-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.bulk-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 150px;
+  padding: 12px 14px;
+  border: 1px solid var(--md-outline);
+  border-radius: var(--radius-md);
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  user-select: auto;
+  -webkit-user-select: auto;
+  touch-action: auto;
+}
+
+.bulk-textarea:focus {
+  outline: 2px solid var(--md-primary);
+  border-color: var(--md-primary);
+}
+
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-paste-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 19px;
+  background: var(--md-surface-container);
+  color: var(--md-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-paste-action:hover,
+.btn-paste-action:focus-visible {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border-color: var(--md-primary);
+}
+
+.bulk-counter-pill {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--md-on-surface-variant);
+  background: var(--md-surface-container-highest);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.bulk-feedback-msg {
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--md-primary) 12%, transparent);
+  color: var(--md-primary);
+  line-height: 1.4;
+}
+
+.bulk-feedback-msg.error {
+  background: color-mix(in srgb, var(--md-error) 15%, transparent);
+  color: var(--md-error);
+}
+
+.bulk-feedback-msg.success {
+  background: color-mix(in srgb, #2e7d32 15%, transparent);
+  color: #2e7d32;
+}
+
+.btn-filled:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 
