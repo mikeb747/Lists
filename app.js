@@ -641,6 +641,7 @@ const MOVE_CANCEL_PX = 10;
     }
 
     if (deferredPrompt) {
+      // Browser triggered beforeinstallprompt - installing is supported and available right now!
       if (els.installBtn) els.installBtn.hidden = false;
       if (els.installBar) els.installBar.hidden = false;
       if (els.settingsInstallStatus) {
@@ -650,13 +651,16 @@ const MOVE_CANCEL_PX = 10;
         els.settingsInstallTitle.textContent = "Install App";
       }
     } else {
-      if (els.installBtn) els.installBtn.hidden = false;
-      if (els.installBar) els.installBar.hidden = false;
+      // Not installable right now (non-mobile browser without prompt, unsupported browser, or already dismissed)
+      // Hide the Install button on the main page so it does not clutter the screen
+      if (els.installBtn) els.installBtn.hidden = true;
+      if (els.installBar) els.installBar.hidden = true;
+
       const isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
       if (els.settingsInstallStatus) {
         els.settingsInstallStatus.textContent = isIOS
           ? "Tap Share ⎋ then 'Add to Home Screen'"
-          : "Tap for installation options";
+          : "Web browser mode • Use browser menu to install";
       }
       if (els.settingsInstallTitle) {
         els.settingsInstallTitle.textContent = "Install App";
@@ -805,7 +809,8 @@ const MOVE_CANCEL_PX = 10;
       } else if (err.code === "auth/popup-closed-by-user") {
         msg = "Sign-in popup closed before completing. Click to try again.";
       } else if (err.code === "auth/unauthorized-domain") {
-        msg = "This app's domain is not yet authorized in Firebase Console.";
+        const currentHost = window.location.hostname;
+        msg = `Domain not authorized in Firebase: "${currentHost}". Add this exact domain to Firebase Console.`;
       }
       setDriveStatus(msg, "error");
     }
