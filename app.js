@@ -1602,7 +1602,10 @@ const MOVE_CANCEL_PX = 10;
     els.importanceValue.textContent = els.taskForm.elements.importance.value;
     updateSubheadingUI();
     openOverlay(els.taskDialog);
-    els.taskForm.elements.name.focus();
+    if (els.taskDialog) els.taskDialog.scrollTop = 0;
+    if (window.matchMedia("(pointer: fine)").matches) {
+      els.taskForm.elements.name.focus();
+    }
   }
 
   function openCategoryDialog(category) {
@@ -3193,10 +3196,148 @@ const MOVE_CANCEL_PX = 10;
       els.btnCloseStats.addEventListener("click", closeOverlays);
     }
 
+    document.addEventListener("click", (event) => {
+      const closeBtn = event.target.closest("[data-close-sheet]");
+      if (closeBtn) {
+        closeOverlays();
+      }
+    });
+
     setupDrag();
     setupTabInteraction();
     setupTabScroll();
     setupSwipeActions();
+    setupSheetDragToDismiss();
+  }
+
+  function setupSheetDragToDismiss() {
+    const sheetSelectors = [
+      ".sheet",
+      "#dialog-task",
+    ];
+
+    document.querySelectorAll(sheetSelectors.join(",")).forEach((sheet) => {
+      const handle = sheet.querySelector(".sheet-handle");
+      if (!handle) return;
+
+      let startY = 0;
+      let currentY = 0;
+      let isDragging = false;
+
+      const getIsDesktop = () => {
+        return window.matchMedia("(min-width: 601px)").matches;
+      };
+
+      const onPointerDown = (e) => {
+        if (e.button !== 0 && e.pointerType === "mouse") return;
+        if (e.target.closest("button, input, select, textarea, label")) return;
+
+        isDragging = true;
+        startY = e.clientY;
+        currentY = startY;
+
+        sheet.style.transition = "none";
+        try {
+          handle.setPointerCapture(e.pointerId);
+        } catch (_) {}
+
+        handle.addEventListener("pointermove", onPointerMove);
+        handle.addEventListener("pointerup", onPointerUp);
+        handle.addEventListener("pointercancel", onPointerUp);
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        currentY = e.clientY;
+        const deltaY = currentY - startY;
+        const isDesktop = getIsDesktop();
+
+        if (deltaY > 0) {
+          // Dragging downwards to minimize
+          if (sheet.id === "dialog-task" && isDesktop) {
+            sheet.style.transform = `translate(-50%, calc(-50% + ${deltaY}px))`;
+          } else if (isDesktop && sheet.classList.contains("sheet")) {
+            sheet.style.transform = `translateX(-50%) translateY(${deltaY}px)`;
+          } else {
+            sheet.style.transform = `translateY(${deltaY}px)`;
+          }
+          if (els.scrim) {
+            const opacity = Math.max(0.05, 0.4 * (1 - deltaY / 300));
+            els.scrim.style.background = `rgba(0, 0, 0, ${opacity})`;
+          }
+        } else {
+          // Slight upward resistance
+          const damped = deltaY * 0.15;
+          if (sheet.id === "dialog-task" && isDesktop) {
+            sheet.style.transform = `translate(-50%, calc(-50% + ${damped}px))`;
+          } else if (isDesktop && sheet.classList.contains("sheet")) {
+            sheet.style.transform = `translateX(-50%) translateY(${damped}px)`;
+          } else {
+            sheet.style.transform = `translateY(${damped}px)`;
+          }
+        }
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        handle.removeEventListener("pointermove", onPointerMove);
+        handle.removeEventListener("pointerup", onPointerUp);
+        handle.removeEventListener("pointercancel", onPointerUp);
+        try {
+          handle.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+
+        const deltaY = currentY - startY;
+        const threshold = 70;
+        const isDesktop = getIsDesktop();
+
+        sheet.style.transition = "transform 0.22s cubic-bezier(0.2, 0, 0, 1)";
+
+        if (deltaY > threshold) {
+          // Dismiss downwards
+          if (sheet.id === "dialog-task" && isDesktop) {
+            sheet.style.transform = `translate(-50%, 100vh)`;
+          } else if (isDesktop && sheet.classList.contains("sheet")) {
+            sheet.style.transform = `translateX(-50%) translateY(100vh)`;
+          } else {
+            sheet.style.transform = `translateY(100%)`;
+          }
+          if (els.scrim) {
+            els.scrim.style.transition = "opacity 0.18s ease";
+            els.scrim.style.opacity = "0";
+          }
+          setTimeout(() => {
+            closeOverlays();
+            sheet.style.transform = "";
+            sheet.style.transition = "";
+            if (els.scrim) {
+              els.scrim.style.background = "";
+              els.scrim.style.opacity = "";
+              els.scrim.style.transition = "";
+            }
+          }, 200);
+        } else {
+          // Rebound back to normal rest position
+          if (sheet.id === "dialog-task" && isDesktop) {
+            sheet.style.transform = "translate(-50%, -50%)";
+          } else if (isDesktop && sheet.classList.contains("sheet")) {
+            sheet.style.transform = "translateX(-50%)";
+          } else {
+            sheet.style.transform = "translateY(0)";
+          }
+          if (els.scrim) {
+            els.scrim.style.background = "";
+          }
+          setTimeout(() => {
+            sheet.style.transform = "";
+            sheet.style.transition = "";
+          }, 240);
+        }
+      };
+
+      handle.addEventListener("pointerdown", onPointerDown);
+    });
   }
 
   function setupSwipeActions() {

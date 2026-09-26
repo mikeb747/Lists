@@ -1018,22 +1018,91 @@ html[data-theme="dark"] .tab[data-tab-color="slate"]:not(.active) {
   bottom: 0;
   padding: 8px 20px calc(20px + var(--safe-bottom));
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  max-height: 80dvh;
-  overflow: auto;
+  max-height: 85dvh;
+  max-height: 85vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
 }
 
 .sheet-handle {
-  width: 32px;
+  width: 44px;
   height: 4px;
-  margin: 6px auto 12px;
+  margin: 6px auto 14px;
   border-radius: 2px;
   background: var(--md-outline-variant);
+  cursor: grab;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.sheet-handle::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  bottom: -12px;
+  left: -28px;
+  right: -28px;
+}
+
+.sheet-handle:active {
+  cursor: grabbing;
+  background: var(--md-outline);
+}
+
+/* Chrome-style close button in top right of sheets & dialogs */
+.sheet-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  padding: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  touch-action: manipulation;
+}
+
+.sheet-close-btn:hover {
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+}
+
+.sheet-close-btn:active {
+  transform: scale(0.92);
+  background: var(--md-surface-container-highest);
+}
+
+.sheet-close-btn svg {
+  display: block;
 }
 
 .sheet h2,
 .dialog h2 {
   margin: 0 0 12px;
   font-size: 1.15rem;
+  padding-right: 36px;
+}
+
+.sheet-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-right: 36px;
 }
 
 .sheet-note {
@@ -1108,10 +1177,40 @@ html[data-theme="dark"] .tab[data-tab-color="slate"]:not(.active) {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(calc(100% - 32px), 440px);
-  padding: 24px 20px 12px;
+  width: min(calc(100% - 32px), 460px);
+  max-height: calc(100dvh - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  padding: 24px 20px 16px;
   border-radius: var(--radius-xl);
   box-shadow: var(--md-shadow-fab);
+  box-sizing: border-box;
+}
+
+/* Edit Task Pane on mobile: anchors cleanly as bottom sheet with smooth touch scrolling */
+@media (max-width: 600px) {
+  #dialog-task {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    transform: none;
+    width: 100%;
+    max-height: 90dvh;
+    max-height: 90vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    padding: 8px 20px calc(24px + var(--safe-bottom));
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
 }
 
 .dialog form,

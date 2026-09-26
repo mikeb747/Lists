@@ -112,7 +112,12 @@
     <div id="scrim" class="scrim" hidden></div>
 
     <section id="sheet-bulk-paste" class="sheet sheet-bulk" role="dialog" aria-modal="true" aria-labelledby="bulk-paste-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <div class="sheet-header-row">
         <div>
           <h2 id="bulk-paste-title">Paste Multiple Tasks</h2>
@@ -158,13 +163,17 @@
 
     <!-- Focus Timer Sheet -->
     <section id="sheet-focus-timer" class="sheet sheet-focus" role="dialog" aria-modal="true" aria-labelledby="focus-timer-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <div class="sheet-header-row">
         <div>
           <h2 id="focus-timer-title">Focus Timer</h2>
           <p class="sheet-note">Stay in the zone with interval focus sessions.</p>
         </div>
-        <button type="button" id="btn-close-focus" class="btn-icon-subtle" aria-label="Close focus timer">✕</button>
       </div>
 
       <div class="focus-timer-content">
@@ -201,13 +210,17 @@
 
     <!-- Productivity Insights Sheet -->
     <section id="sheet-stats" class="sheet sheet-stats" role="dialog" aria-modal="true" aria-labelledby="stats-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <div class="sheet-header-row">
         <div>
           <h2 id="stats-title">Productivity Insights</h2>
           <p class="sheet-note">Your task completion streaks and focus history.</p>
         </div>
-        <button type="button" id="btn-close-stats" class="btn-icon-subtle" aria-label="Close insights">✕</button>
       </div>
 
       <div class="stats-content">
@@ -251,7 +264,12 @@
     </section>
 
     <section id="sheet-filter" class="sheet" role="dialog" aria-modal="true" aria-labelledby="filter-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <h2 id="filter-title">Sort &amp; filters</h2>
       <p class="sheet-note">Manual order is restored when you return to Manual Order.</p>
       <form id="filter-form" class="choice-list">
@@ -291,7 +309,12 @@
     </section>
 
     <section id="sheet-settings" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <h2 id="settings-title">Settings</h2>
 
       <div class="settings-content">
@@ -505,7 +528,12 @@
     </section>
 
     <section id="sheet-task-actions" class="sheet" role="dialog" aria-labelledby="task-actions-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <h2 id="task-actions-title">Task</h2>
       <div class="action-list">
         <button type="button" data-action="edit">Edit</button>
@@ -518,7 +546,12 @@
     </section>
 
     <section id="sheet-move-task" class="sheet" role="dialog" aria-modal="true" aria-labelledby="move-task-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <h2 id="move-task-title">Move to Tab</h2>
       <p class="sheet-note" id="move-task-desc">Select a destination tab</p>
       <div id="move-tab-list" class="move-tab-list"></div>
@@ -528,7 +561,12 @@
     </section>
 
     <section id="sheet-category-actions" class="sheet" role="dialog" aria-labelledby="cat-actions-title" hidden>
-      <div class="sheet-handle"></div>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <h2 id="cat-actions-title">Tab Options</h2>
       <div class="action-list">
         <button type="button" data-action="toggle-compact" id="action-toggle-compact" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -550,7 +588,13 @@
       </div>
     </section>
 
-    <section id="dialog-task" class="dialog" role="dialog" aria-labelledby="task-dialog-title" hidden>
+    <section id="dialog-task" class="dialog sheet-like-dialog" role="dialog" aria-labelledby="task-dialog-title" hidden>
+      <button type="button" class="sheet-close-btn" data-close-sheet aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="sheet-handle" role="button" aria-label="Drag down to minimize"></div>
       <form id="task-form">
         <h2 id="task-dialog-title">Add task</h2>
         <label>
