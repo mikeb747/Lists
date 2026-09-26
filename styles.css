@@ -331,6 +331,12 @@ body {
   cursor: grabbing;
 }
 
+.tabs.dragging-tab-mode {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 /* While dragging, the tab itself remains in DOM as the landing slot */
 .tab.tab-dragging-placeholder {
   border: 2px dashed var(--md-primary) !important;
@@ -381,6 +387,282 @@ body {
   background: var(--md-primary-container);
   color: var(--md-on-primary-container);
 }
+
+/* Custom Tab Color Palette */
+.tab[data-tab-color="red"] {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.tab[data-tab-color="red"].active,
+.tab-ghost-preview[data-tab-color="red"] {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+}
+
+.tab[data-tab-color="orange"] {
+  background: rgba(249, 115, 22, 0.16);
+  color: #c2410c;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+.tab[data-tab-color="orange"].active,
+.tab-ghost-preview[data-tab-color="orange"] {
+  background: #f97316 !important;
+  color: #ffffff !important;
+  border-color: #ea580c !important;
+  box-shadow: 0 3px 10px rgba(249, 115, 22, 0.35);
+}
+
+.tab[data-tab-color="amber"] {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.tab[data-tab-color="amber"].active,
+.tab-ghost-preview[data-tab-color="amber"] {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  border-color: #b45309 !important;
+  box-shadow: 0 3px 10px rgba(217, 119, 6, 0.35);
+}
+
+.tab[data-tab-color="green"] {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.tab[data-tab-color="green"].active,
+.tab-ghost-preview[data-tab-color="green"] {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35);
+}
+
+.tab[data-tab-color="teal"] {
+  background: rgba(20, 184, 166, 0.16);
+  color: #0f766e;
+  border: 1px solid rgba(20, 184, 166, 0.35);
+}
+.tab[data-tab-color="teal"].active,
+.tab-ghost-preview[data-tab-color="teal"] {
+  background: #14b8a6 !important;
+  color: #ffffff !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 3px 10px rgba(20, 184, 166, 0.35);
+}
+
+.tab[data-tab-color="blue"] {
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+.tab[data-tab-color="blue"].active,
+.tab-ghost-preview[data-tab-color="blue"] {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.35);
+}
+
+.tab[data-tab-color="indigo"] {
+  background: rgba(99, 102, 241, 0.16);
+  color: #4338ca;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+.tab[data-tab-color="indigo"].active,
+.tab-ghost-preview[data-tab-color="indigo"] {
+  background: #6366f1 !important;
+  color: #ffffff !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.35);
+}
+
+.tab[data-tab-color="purple"] {
+  background: rgba(168, 85, 247, 0.16);
+  color: #7e22ce;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+.tab[data-tab-color="purple"].active,
+.tab-ghost-preview[data-tab-color="purple"] {
+  background: #a855f7 !important;
+  color: #ffffff !important;
+  border-color: #9333ea !important;
+  box-shadow: 0 3px 10px rgba(168, 85, 247, 0.35);
+}
+
+.tab[data-tab-color="pink"] {
+  background: rgba(236, 72, 153, 0.16);
+  color: #be123c;
+  border: 1px solid rgba(236, 72, 153, 0.35);
+}
+.tab[data-tab-color="pink"].active,
+.tab-ghost-preview[data-tab-color="pink"] {
+  background: #ec4899 !important;
+  color: #ffffff !important;
+  border-color: #db2777 !important;
+  box-shadow: 0 3px 10px rgba(236, 72, 153, 0.35);
+}
+
+.tab[data-tab-color="slate"] {
+  background: rgba(100, 116, 139, 0.16);
+  color: #334155;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+}
+.tab[data-tab-color="slate"].active,
+.tab-ghost-preview[data-tab-color="slate"] {
+  background: #64748b !important;
+  color: #ffffff !important;
+  border-color: #475569 !important;
+  box-shadow: 0 3px 10px rgba(100, 116, 139, 0.35);
+}
+
+/* Dark mode contrast adjustments for inactive custom tabs */
+html[data-theme="dark"] .tab[data-tab-color="red"]:not(.active) {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="orange"]:not(.active) {
+  background: rgba(249, 115, 22, 0.22);
+  color: #fdba74;
+  border-color: rgba(251, 146, 60, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="amber"]:not(.active) {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fde68a;
+  border-color: rgba(252, 211, 77, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="green"]:not(.active) {
+  background: rgba(16, 185, 129, 0.22);
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="teal"]:not(.active) {
+  background: rgba(20, 184, 166, 0.22);
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="blue"]:not(.active) {
+  background: rgba(59, 130, 246, 0.22);
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="indigo"]:not(.active) {
+  background: rgba(99, 102, 241, 0.22);
+  color: #a5b4fc;
+  border-color: rgba(129, 140, 248, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="purple"]:not(.active) {
+  background: rgba(168, 85, 247, 0.22);
+  color: #d8b4fe;
+  border-color: rgba(192, 132, 252, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="pink"]:not(.active) {
+  background: rgba(236, 72, 153, 0.22);
+  color: #f472b6;
+  border-color: rgba(244, 114, 182, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="slate"]:not(.active) {
+  background: rgba(100, 116, 139, 0.22);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+/* Tab Background Color Picker in Sheet */
+.tab-color-picker-wrap {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--md-outline-variant);
+}
+
+.tab-color-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tab-color-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--md-on-surface);
+}
+
+.tab-color-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--md-primary);
+  text-transform: capitalize;
+}
+
+.tab-color-palette {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  padding: 4px 2px;
+}
+
+.tab-color-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  outline: none;
+  padding: 0;
+}
+
+.tab-color-swatch:hover {
+  transform: scale(1.12);
+}
+
+.tab-color-swatch:focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: 2px;
+}
+
+.tab-color-swatch.active {
+  border-color: var(--md-primary);
+  transform: scale(1.15);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.tab-color-swatch.active::after {
+  content: "✓";
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.tab-color-swatch[data-color="default"] {
+  background: var(--md-surface-variant);
+  border: 2px dashed var(--md-outline);
+}
+.tab-color-swatch[data-color="default"].active::after {
+  color: var(--md-on-surface);
+  text-shadow: none;
+}
+
+.tab-color-swatch[data-color="red"] { background: #ef4444; }
+.tab-color-swatch[data-color="orange"] { background: #f97316; }
+.tab-color-swatch[data-color="amber"] { background: #f59e0b; }
+.tab-color-swatch[data-color="green"] { background: #10b981; }
+.tab-color-swatch[data-color="teal"] { background: #14b8a6; }
+.tab-color-swatch[data-color="blue"] { background: #3b82f6; }
+.tab-color-swatch[data-color="indigo"] { background: #6366f1; }
+.tab-color-swatch[data-color="purple"] { background: #a855f7; }
+.tab-color-swatch[data-color="pink"] { background: #ec4899; }
+.tab-color-swatch[data-color="slate"] { background: #64748b; }
+
 
 .tab.add {
   background: transparent;

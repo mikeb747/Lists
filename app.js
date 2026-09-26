@@ -84,6 +84,8 @@ const MOVE_CANCEL_PX = 10;
     actionMoveTabRight: document.getElementById("action-move-tab-right"),
     actionRenameCat: document.getElementById("action-rename-cat"),
     actionDeleteCat: document.getElementById("action-delete-cat"),
+    tabColorPalette: document.getElementById("tab-color-palette"),
+    tabColorName: document.getElementById("tab-color-name"),
     reminderToast: document.getElementById("reminder-toast"),
     toastTitle: document.getElementById("toast-title"),
     toastMsg: document.getElementById("toast-msg"),
@@ -371,12 +373,31 @@ const MOVE_CANCEL_PX = 10;
     return false;
   }
 
+  function getTabColor(tabId) {
+    if (!tabId) return "";
+    if (state.settings.tabColors && state.settings.tabColors[tabId]) {
+      return state.settings.tabColors[tabId];
+    }
+    const cat = state.categories.find(
+      (c) => c.id === tabId || c.name.toLowerCase() === String(tabId).toLowerCase()
+    );
+    if (cat) {
+      if (state.settings.tabColors && state.settings.tabColors[cat.id]) {
+        return state.settings.tabColors[cat.id];
+      }
+      if (cat.color) return cat.color;
+    }
+    return "";
+  }
+
   function tabButton(id, label, active, userCategory = false) {
     const activeClass = active ? " active" : "";
     const catAttr = userCategory ? " data-user-category='true'" : "";
     const isCompact = isTabCompact(id);
     const compactAttr = isCompact ? " data-compact='true'" : "";
-    return `<button type="button" class="tab${activeClass}" data-tab="${id}"${catAttr}${compactAttr}>${escapeHtml(
+    const color = getTabColor(id);
+    const colorAttr = color ? ` data-tab-color="${color}"` : "";
+    return `<button type="button" class="tab${activeClass}" data-tab="${id}"${catAttr}${compactAttr}${colorAttr}>${escapeHtml(
       label
     )}</button>`;
   }
@@ -1515,6 +1536,20 @@ const MOVE_CANCEL_PX = 10;
     updateTabScrollButtons();
   }
 
+  const TAB_COLORS = [
+    { id: "default", name: "Default" },
+    { id: "red", name: "Red" },
+    { id: "orange", name: "Orange" },
+    { id: "amber", name: "Amber" },
+    { id: "green", name: "Green" },
+    { id: "teal", name: "Teal" },
+    { id: "blue", name: "Blue" },
+    { id: "indigo", name: "Indigo" },
+    { id: "purple", name: "Purple" },
+    { id: "pink", name: "Pink" },
+    { id: "slate", name: "Slate" },
+  ];
+
   function openTabOptionsSheet(tabId) {
     state.actionTabId = tabId;
     const isCompact = isTabCompact(state.actionTabId);
@@ -1549,14 +1584,31 @@ const MOVE_CANCEL_PX = 10;
       els.actionMoveTabRight.disabled = catIndex < 0 || catIndex >= state.categories.length - 1;
     }
 
+    const currentColor = getTabColor(state.actionTabId) || "default";
+    if (els.tabColorName) {
+      const colObj = TAB_COLORS.find((c) => c.id === currentColor) || TAB_COLORS[0];
+      els.tabColorName.textContent = colObj.name;
+    }
+    if (els.tabColorPalette) {
+      els.tabColorPalette.innerHTML = TAB_COLORS.map((c) => {
+        const isSelected = c.id === currentColor;
+        return `<button type="button" class="tab-color-swatch${isSelected ? " active" : ""}" data-color="${c.id}" aria-label="${c.name} color" title="${c.name}"></button>`;
+      }).join("");
+    }
+
     openOverlay(els.categoryActions);
   }
 
   function setupTabInteraction() {
-    let longPressTimer = null;
-    let longPressTriggered = false;
+    const DRAG_HOLD_MS = 400; // 80% of original 500ms
+    const OPTIONS_HOLD_MS = 1000; // 200% of original 500ms
+
+    let dragTimer = null;
+    let optionsTimer = null;
     let dragActive = false;
+    let dragMoved = false;
     let activeTab = null;
+    let activePointerId = null;
     let startX = 0;
     let startY = 0;
     let dragOffsetX = 0;
@@ -1571,10 +1623,62 @@ const MOVE_CANCEL_PX = 10;
       }
     };
 
-    const clearLongPress = () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
+    const clearTimers = () => {
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        dragTimer = null;
+      }
+      if (optionsTimer) {
+        clearTimeout(optionsTimer);
+        optionsTimer = null;
+      }
+    };
+
+    const cleanupDragVisuals = () => {
+      stopAutoScroll();
+      els.tabs.classList.remove("dragging-tab-mode");
+      document.body.classList.remove("dragging-tab-mode");
+      if (previewEl) {
+        previewEl.remove();
+        previewEl = null;
+      }
+      if (activeTab) {
+        activeTab.classList.remove("tab-dragging-placeholder");
+      }
+    };
+
+    const startDrag = (pointerX, pointerY) => {
+      if (!activeTab || dragActive || activeTab.dataset.userCategory !== "true") return;
+      dragActive = true;
+      state.suppressTabClick = true;
+
+      if (navigator.vibrate) {
+        try { navigator.vibrate(35); } catch (_) {}
+      }
+
+      els.tabs.classList.add("dragging-tab-mode");
+      document.body.classList.add("dragging-tab-mode");
+
+      const rect = activeTab.getBoundingClientRect();
+      activeTab.classList.add("tab-dragging-placeholder");
+
+      previewEl = document.createElement("div");
+      previewEl.className = "tab-ghost-preview";
+      previewEl.textContent = activeTab.textContent;
+      const tabColor = activeTab.dataset.tabColor;
+      if (tabColor) {
+        previewEl.dataset.tabColor = tabColor;
+      }
+      previewEl.style.width = `${rect.width}px`;
+      previewEl.style.height = `${rect.height}px`;
+      previewEl.style.left = `${pointerX - dragOffsetX}px`;
+      previewEl.style.top = `${pointerY - dragOffsetY}px`;
+      document.body.appendChild(previewEl);
+
+      if (activePointerId !== null && activeTab.setPointerCapture) {
+        try {
+          activeTab.setPointerCapture(activePointerId);
+        } catch (_) {}
       }
     };
 
@@ -1611,41 +1715,37 @@ const MOVE_CANCEL_PX = 10;
     };
 
     const onPointerMove = (e) => {
-      if (!activeTab || longPressTriggered) return;
+      if (!activeTab) return;
 
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
       const dist = Math.hypot(deltaX, deltaY);
 
-      // Cancel long press immediately on any movement greater than 5px
-      if (dist > 5) {
-        clearLongPress();
+      // If drag mode is not active yet:
+      if (!dragActive) {
+        // Desktop mouse: moving > 5px immediately starts drag without waiting
+        if (e.pointerType === "mouse" && dist > 5 && activeTab.dataset.userCategory === "true") {
+          clearTimers();
+          startDrag(e.clientX, e.clientY);
+          return;
+        }
+
+        // On touch: moving before 400ms timer indicates natural tab scrolling
+        if (dist > 8) {
+          clearTimers();
+        }
+        return;
       }
 
-      // Initiate horizontal drag for custom categories once movement exceeds 7px
-      if (!dragActive && activeTab.dataset.userCategory === "true") {
-        if (dist > 7 && Math.abs(deltaX) > Math.abs(deltaY) * 0.6) {
-          dragActive = true;
-          state.suppressTabClick = true;
-
-          const rect = activeTab.getBoundingClientRect();
-
-          // activeTab remains right in the DOM as the visible landing slot
-          activeTab.classList.add("tab-dragging-placeholder");
-
-          // Floating preview pill following the pointer
-          previewEl = document.createElement("div");
-          previewEl.className = "tab-ghost-preview";
-          previewEl.textContent = activeTab.textContent;
-          previewEl.style.width = `${rect.width}px`;
-          previewEl.style.height = `${rect.height}px`;
-          previewEl.style.left = `${e.clientX - dragOffsetX}px`;
-          previewEl.style.top = `${e.clientY - dragOffsetY}px`;
-          document.body.appendChild(previewEl);
+      // If we are actively dragging:
+      if (dist > 6) {
+        dragMoved = true;
+        // Pointer has moved while dragging -> cancel options timer so sheet won't pop up!
+        if (optionsTimer) {
+          clearTimeout(optionsTimer);
+          optionsTimer = null;
         }
       }
-
-      if (!dragActive) return;
 
       if (e.cancelable) e.preventDefault();
 
@@ -1704,16 +1804,28 @@ const MOVE_CANCEL_PX = 10;
     };
 
     const onPointerUp = async (e) => {
+      clearTimers();
       stopAutoScroll();
-      clearLongPress();
 
       document.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("pointerup", onPointerUp);
       document.removeEventListener("pointercancel", onPointerUp);
 
       const tabToCommit = activeTab;
+      const wasDragging = dragActive;
+      const didMove = dragMoved;
 
-      if (dragActive && tabToCommit) {
+      if (activePointerId !== null && tabToCommit?.releasePointerCapture) {
+        try {
+          tabToCommit.releasePointerCapture(activePointerId);
+        } catch (_) {}
+      }
+
+      activePointerId = null;
+      els.tabs.classList.remove("dragging-tab-mode");
+      document.body.classList.remove("dragging-tab-mode");
+
+      if (wasDragging && tabToCommit) {
         if (previewEl) {
           const rect = tabToCommit.getBoundingClientRect();
           previewEl.style.transition = "all 0.15s cubic-bezier(0.2, 0, 0, 1)";
@@ -1731,39 +1843,35 @@ const MOVE_CANCEL_PX = 10;
             tabToCommit.classList.remove("tab-dragging-placeholder");
           }
 
-          // Persist the reordered positions to IndexedDB
-          const reorderedIds = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].map(
-            (t) => t.dataset.tab
-          );
+          if (didMove) {
+            // Persist the reordered positions to IndexedDB
+            const reorderedIds = [...els.tabs.querySelectorAll(".tab[data-user-category='true']")].map(
+              (t) => t.dataset.tab
+            );
 
-          for (let i = 0; i < reorderedIds.length; i++) {
-            const catId = reorderedIds[i];
-            const cat = state.categories.find((c) => c.id === catId);
-            if (cat) {
-              cat.sortPosition = i;
-              await put("categories", cat);
+            for (let i = 0; i < reorderedIds.length; i++) {
+              const catId = reorderedIds[i];
+              const cat = state.categories.find((c) => c.id === catId);
+              if (cat) {
+                cat.sortPosition = i;
+                await put("categories", cat);
+              }
             }
-          }
 
-          state.categories.sort((a, b) => a.sortPosition - b.sortPosition);
-          renderTabs();
-          updateTabScrollButtons();
+            state.categories.sort((a, b) => a.sortPosition - b.sortPosition);
+            renderTabs();
+            updateTabScrollButtons();
+          }
 
           setTimeout(() => {
             state.suppressTabClick = false;
           }, 100);
         }, 150);
       } else {
-        if (previewEl) {
-          previewEl.remove();
-          previewEl = null;
-        }
-        if (tabToCommit) {
-          tabToCommit.classList.remove("tab-dragging-placeholder");
-        }
+        cleanupDragVisuals();
 
-        // Tap handling (when neither dragged nor long-pressed)
-        if (!longPressTriggered && tabToCommit && !state.suppressTabClick) {
+        // Tap handling (when neither dragged nor opened in options sheet)
+        if (tabToCommit && !state.suppressTabClick) {
           const tabId = tabToCommit.dataset.tab;
           if (tabId === "add") {
             openCategoryDialog(null);
@@ -1776,8 +1884,8 @@ const MOVE_CANCEL_PX = 10;
       }
 
       dragActive = false;
+      dragMoved = false;
       activeTab = null;
-      longPressTriggered = false;
     };
 
     els.tabs.addEventListener("pointerdown", (e) => {
@@ -1788,27 +1896,46 @@ const MOVE_CANCEL_PX = 10;
       if (!tab) return;
 
       activeTab = tab;
+      activePointerId = e.pointerId;
       startX = e.clientX;
       startY = e.clientY;
       dragActive = false;
-      longPressTriggered = false;
+      dragMoved = false;
 
       const rect = tab.getBoundingClientRect();
       dragOffsetX = e.clientX - rect.left;
       dragOffsetY = e.clientY - rect.top;
 
-      // Start long-press timer (500ms) only for selectable tabs
+      clearTimers();
+
+      // Only selectable tabs get drag & options timers (not '+' add button)
       if (tab.dataset.tab !== "add") {
-        longPressTimer = setTimeout(() => {
-          if (dragActive) return;
-          longPressTriggered = true;
+        // 1st Timer: 400ms (80% of 500ms) - activates drag mode
+        dragTimer = setTimeout(() => {
+          if (activeTab?.dataset.userCategory === "true") {
+            startDrag(startX, startY);
+          }
+        }, DRAG_HOLD_MS);
+
+        // 2nd Timer: 1000ms (200% of 500ms) - opens Tab Options sheet
+        optionsTimer = setTimeout(() => {
+          // If the user has started dragging and moved the tab, do NOT open options
+          if (dragMoved) return;
+
+          // Otherwise, cancel drag preview if engaged and open options sheet
+          cleanupDragVisuals();
+          dragActive = false;
           state.suppressTabClick = true;
-          if (navigator.vibrate) navigator.vibrate(20);
+
+          if (navigator.vibrate) {
+            try { navigator.vibrate([30, 40, 30]); } catch (_) {}
+          }
+
           openTabOptionsSheet(tab.dataset.tab);
           setTimeout(() => {
             state.suppressTabClick = false;
           }, 300);
-        }, 500);
+        }, OPTIONS_HOLD_MS);
       }
 
       document.addEventListener("pointermove", onPointerMove, { passive: false });
@@ -2471,6 +2598,9 @@ const MOVE_CANCEL_PX = 10;
               await put("tasks", { ...task, categoryId: "" });
             }
             await remove("categories", category.id);
+            if (state.settings.tabColors && state.settings.tabColors[category.id]) {
+              delete state.settings.tabColors[category.id];
+            }
             if (state.settings.activeTab === category.id) state.settings.activeTab = "all";
             await saveSettings();
             await loadAll();
@@ -2479,6 +2609,42 @@ const MOVE_CANCEL_PX = 10;
         });
       }
     });
+
+    if (els.tabColorPalette) {
+      els.tabColorPalette.addEventListener("click", async (event) => {
+        const swatch = event.target.closest(".tab-color-swatch");
+        if (!swatch) return;
+        const color = swatch.dataset.color;
+        if (!color) return;
+
+        state.settings.tabColors = state.settings.tabColors || {};
+        if (color === "default") {
+          delete state.settings.tabColors[state.actionTabId];
+        } else {
+          state.settings.tabColors[state.actionTabId] = color;
+        }
+
+        const cat = state.categories.find((c) => c.id === state.actionTabId);
+        if (cat) {
+          cat.color = color === "default" ? null : color;
+          await put("categories", cat);
+        }
+
+        await saveSettings();
+        renderTabs();
+
+        if (els.tabColorName) {
+          const colObj = TAB_COLORS.find((c) => c.id === color) || TAB_COLORS[0];
+          els.tabColorName.textContent = colObj.name;
+        }
+
+        [...els.tabColorPalette.querySelectorAll(".tab-color-swatch")].forEach((el) => {
+          el.classList.toggle("active", el.dataset.color === color);
+        });
+
+        showToast("Tab color updated");
+      });
+    }
 
     document.getElementById("confirm-cancel").addEventListener("click", closeOverlays);
     els.confirmOk.addEventListener("click", async () => {

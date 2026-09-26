@@ -1,4 +1,4 @@
-const CACHE_NAME = "priority-planner-v9";
+const CACHE_NAME = "priority-planner-v10";
 const ASSETS = [
   "./",
   "./index.html",

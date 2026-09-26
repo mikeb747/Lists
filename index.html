@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.5.3" />
+    <link rel="stylesheet" href="./styles.css?v=1.5.4" />
   </head>
   <body>
     <div id="app">
@@ -348,7 +348,7 @@
         </div>
 
         <div class="settings-footer">
-          <span class="settings-version">Lists v1.5.3 • Offline PWA</span>
+          <span class="settings-version">Lists v1.5.4 • Offline PWA</span>
         </div>
       </div>
     </section>
@@ -388,6 +388,14 @@
         <button type="button" data-action="move-right" id="action-move-tab-right">Move tab right</button>
         <button type="button" data-action="rename" id="action-rename-cat">Rename</button>
         <button type="button" data-action="delete" id="action-delete-cat" class="danger">Delete</button>
+      </div>
+
+      <div class="tab-color-picker-wrap">
+        <div class="tab-color-header">
+          <span class="tab-color-label">Tab background color</span>
+          <span id="tab-color-name" class="tab-color-name">Default</span>
+        </div>
+        <div class="tab-color-palette" id="tab-color-palette" role="radiogroup" aria-label="Tab background color"></div>
       </div>
     </section>
 
@@ -508,6 +516,6 @@
       <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <script type="module" src="./app.js?v=1.5.3"></script>
+    <script type="module" src="./app.js?v=1.5.4"></script>
   </body>
 </html>
