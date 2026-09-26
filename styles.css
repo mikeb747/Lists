@@ -2150,14 +2150,21 @@ html[data-theme="dark"] .drive-status-message.error {
   border: 2px solid #f08833;
   box-shadow: 0 8px 24px rgba(240, 136, 51, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
   z-index: 1000;
   animation: slideDownToast 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
 }
 
 .reminder-toast[hidden] {
   display: none !important;
+}
+
+.toast-main-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 
 .toast-icon {
@@ -2211,6 +2218,49 @@ html[data-theme="dark"] .drive-status-message.error {
 
 .toast-close:hover {
   opacity: 1;
+}
+
+.toast-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.toast-action-btn {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+.toast-action-btn:active {
+  transform: scale(0.97);
+}
+
+.toast-action-btn.complete {
+  background: #2e7d32;
+  color: #ffffff;
+}
+
+.toast-action-btn.snooze {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.toast-action-btn.snooze:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 @keyframes slideDownToast {
@@ -2347,4 +2397,477 @@ html[data-theme="dark"] .drive-status-message.error {
   cursor: not-allowed;
 }
 
+/* Recurrence Chip Badge */
+.task-chip-recurrence {
+  background: color-mix(in srgb, var(--md-primary) 14%, transparent);
+  color: var(--md-primary);
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--md-primary) 30%, transparent);
+}
 
+/* Subtask Checklist in Task Dialog */
+.form-row-subtasks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.subtasks-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.subtasks-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--md-on-surface-variant);
+}
+
+.subtasks-count-hint {
+  font-size: 0.75rem;
+  color: var(--md-on-surface-variant);
+  font-weight: 600;
+}
+
+.subtask-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.subtask-add-row input {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--md-outline);
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+
+.subtask-add-row input:focus {
+  outline: 2px solid var(--md-primary);
+  border-color: var(--md-primary);
+}
+
+.subtasks-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.subtask-editor-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--md-surface-container);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  color: var(--md-on-surface);
+}
+
+.subtask-editor-item span {
+  flex: 1;
+  word-break: break-word;
+}
+
+.btn-subtask-del {
+  background: none;
+  border: none;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.btn-subtask-del:hover {
+  opacity: 1;
+  color: var(--md-error);
+}
+
+/* Subtasks on Task Card */
+.task-subtasks-summary {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.subtask-progress-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--md-surface-container-high);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 14px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--md-on-surface-variant);
+  width: fit-content;
+  max-width: 100%;
+  transition: background-color 0.15s ease;
+}
+
+.subtask-progress-btn:hover {
+  background: var(--md-surface-container-highest);
+}
+
+.subtask-progress-bar {
+  display: inline-block;
+  width: 50px;
+  height: 6px;
+  background: var(--md-surface-dim);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.subtask-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--md-primary);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+
+.subtask-progress-fill.all-done {
+  background: #2e7d32;
+}
+
+.task-subtasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 2px 4px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.task-subtasks-list[hidden] {
+  display: none !important;
+}
+
+.task-subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  color: var(--md-on-surface);
+}
+
+.task-subtask-item.completed .subtask-title {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.subtask-check-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--md-outline);
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  color: transparent;
+}
+
+.subtask-check-btn.checked {
+  background: var(--md-primary);
+  border-color: var(--md-primary);
+  color: var(--md-on-primary);
+}
+
+.subtask-check-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Focus Timer Sheet */
+.sheet-focus {
+  max-width: 440px;
+}
+
+.focus-timer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.focus-task-select-label {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--md-on-surface-variant);
+}
+
+.focus-select {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--md-outline);
+  border-radius: var(--radius-sm);
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  font-size: 0.9rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+.focus-presets-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.focus-preset-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  border: 1px solid var(--md-outline-variant);
+  background: var(--md-surface-container);
+  color: var(--md-on-surface-variant);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.focus-preset-btn.active,
+.focus-preset-btn:hover {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border-color: var(--md-primary);
+}
+
+.focus-clock-container {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: grid;
+  place-items: center;
+  margin: 6px 0;
+}
+
+.focus-clock-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.focus-clock-track {
+  fill: none;
+  stroke: var(--md-surface-container-highest);
+  stroke-width: 8;
+}
+
+.focus-clock-fill {
+  fill: none;
+  stroke: var(--md-primary);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 440;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+}
+
+.focus-clock-fill.running {
+  stroke: #f08833;
+}
+
+.focus-clock-center {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.focus-time-display {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--md-on-surface);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.focus-state-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+  margin-top: 2px;
+}
+
+.focus-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.focus-primary-btn {
+  min-width: 130px;
+}
+
+/* Productivity Insights Sheet */
+.sheet-stats {
+  max-width: 500px;
+}
+
+.stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 10px;
+}
+
+.stats-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.metric-card {
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-icon {
+  font-size: 1.2rem;
+}
+
+.metric-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--md-on-surface);
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: var(--md-on-surface-variant);
+  font-weight: 500;
+}
+
+.stats-section-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+  margin-bottom: -6px;
+}
+
+.stats-category-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--md-surface-container);
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--md-outline-variant);
+}
+
+.stats-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-bar-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--md-on-surface);
+}
+
+.stats-bar-label {
+  font-weight: 500;
+}
+
+.stats-bar-count {
+  font-weight: 600;
+  color: var(--md-on-surface-variant);
+}
+
+.stats-bar-track {
+  height: 8px;
+  background: var(--md-surface-container-highest);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stats-bar-fill {
+  height: 100%;
+  background: var(--md-primary);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.stats-velocity-card {
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.velocity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--md-on-surface);
+}
+
+.velocity-bar-track {
+  height: 8px;
+  background: var(--md-surface-container-highest);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.velocity-bar-fill {
+  height: 100%;
+  background: #2e7d32;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

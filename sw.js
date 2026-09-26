@@ -1,4 +1,4 @@
-const CACHE_NAME = "priority-planner-v13";
+const CACHE_NAME = "priority-planner-v14";
 const ASSETS = [
   "./",
   "./index.html",
@@ -44,12 +44,30 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const action = event.action;
+  const taskId = event.notification.data?.taskId;
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if ("focus" in client) return client.focus();
+      // Notify active windows of notification actions (complete, snooze_15, snooze_60)
+      if (action && taskId) {
+        for (const client of clientList) {
+          client.postMessage({
+            type: "NOTIFICATION_ACTION",
+            action,
+            taskId,
+          });
+        }
       }
-      if (clients.openWindow) return clients.openWindow("./");
+
+      // If user clicked notification body or wants to view app
+      if (!action || action === "view") {
+        for (const client of clientList) {
+          if ("focus" in client) return client.focus();
+        }
+        if (clients.openWindow) return clients.openWindow("./");
+      }
     })
   );
 });
+

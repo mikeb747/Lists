@@ -126,6 +126,35 @@ const MOVE_CANCEL_PX = 10;
     btnTimerFast: document.getElementById("btn-timer-preset-fast"),
     btnTimerDefault: document.getElementById("btn-timer-preset-default"),
     btnTimerRelaxed: document.getElementById("btn-timer-preset-relaxed"),
+    btnFocusTimer: document.getElementById("btn-focus-timer"),
+    btnStats: document.getElementById("btn-stats"),
+    sheetFocusTimer: document.getElementById("sheet-focus-timer"),
+    btnCloseFocus: document.getElementById("btn-close-focus"),
+    focusTaskSelect: document.getElementById("focus-task-select"),
+    focusTimeDisplay: document.getElementById("focus-time-display"),
+    focusStateLabel: document.getElementById("focus-state-label"),
+    focusClockProgress: document.getElementById("focus-clock-progress"),
+    btnFocusToggle: document.getElementById("btn-focus-toggle"),
+    btnFocusReset: document.getElementById("btn-focus-reset"),
+    btnFocusDone: document.getElementById("btn-focus-done"),
+    focusPresetTask: document.getElementById("focus-preset-task"),
+    sheetStats: document.getElementById("sheet-stats"),
+    btnCloseStats: document.getElementById("btn-close-stats"),
+    statsStreakVal: document.getElementById("stats-streak-val"),
+    statsCompletedToday: document.getElementById("stats-completed-today"),
+    statsCompletedWeek: document.getElementById("stats-completed-week"),
+    statsFocusMins: document.getElementById("stats-focus-mins"),
+    statsCategoryBars: document.getElementById("stats-category-bars"),
+    statsQuickwinsRatio: document.getElementById("stats-quickwins-ratio"),
+    statsQuickwinsFill: document.getElementById("stats-quickwins-fill"),
+    taskRecurrenceSelect: document.getElementById("task-recurrence-select"),
+    inputNewSubtask: document.getElementById("input-new-subtask"),
+    btnAddSubtask: document.getElementById("btn-add-subtask"),
+    subtasksEditorList: document.getElementById("subtasks-editor-list"),
+    taskFormSubtaskCount: document.getElementById("task-form-subtask-count"),
+    toastBtnComplete: document.getElementById("toast-btn-complete"),
+    toastBtnSnooze15: document.getElementById("toast-btn-snooze-15"),
+    toastBtnSnooze60: document.getElementById("toast-btn-snooze-60"),
   };
 
   const state = {
@@ -148,6 +177,8 @@ const MOVE_CANCEL_PX = 10;
       tabDragHoldMs: 400,
       tabOptionsHoldMs: 1000,
       appName: "Lists",
+      focusMinutesTotal: 0,
+      focusLog: {},
     },
     editingTaskId: null,
     editingCategoryId: null,
@@ -157,6 +188,17 @@ const MOVE_CANCEL_PX = 10;
     movingTaskId: null,
     confirmHandler: null,
     drag: null,
+    expandedSubtasks: {},
+  };
+
+  let currentEditingSubtasks = [];
+  let activeReminderTaskId = null;
+  let focusTimer = {
+    totalSeconds: 25 * 60,
+    remainingSeconds: 25 * 60,
+    isRunning: false,
+    intervalId: null,
+    selectedTaskId: "",
   };
 
   let deferredPrompt = null;
@@ -263,6 +305,78 @@ const MOVE_CANCEL_PX = 10;
     now.setDate(now.getDate() + days);
     const offset = now.getTimezoneOffset();
     return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+  }
+
+  function computeNextRecurrenceDate(baseDateStr, recurrence) {
+    if (!recurrence || recurrence === "none") return "";
+    const today = todayISO();
+    let d;
+    if (baseDateStr && baseDateStr >= today) {
+      d = new Date(`${baseDateStr}T00:00:00`);
+    } else {
+      d = new Date(`${today}T00:00:00`);
+    }
+
+    if (recurrence === "daily") {
+      d.setDate(d.getDate() + 1);
+    } else if (recurrence === "weekdays") {
+      do {
+        d.setDate(d.getDate() + 1);
+      } while (d.getDay() === 0 || d.getDay() === 6);
+    } else if (recurrence === "weekly") {
+      d.setDate(d.getDate() + 7);
+    } else if (recurrence === "biweekly") {
+      d.setDate(d.getDate() + 14);
+    } else if (recurrence === "monthly") {
+      d.setMonth(d.getMonth() + 1);
+    }
+    const offset = d.getTimezoneOffset();
+    return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
+  }
+
+  function computeNextReminderDate(baseReminderISO, recurrence) {
+    if (!baseReminderISO || !recurrence || recurrence === "none") return "";
+    let d = new Date(baseReminderISO);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+    if (d < now) {
+      const origHours = d.getHours();
+      const origMins = d.getMinutes();
+      d = new Date();
+      d.setHours(origHours, origMins, 0, 0);
+    }
+
+    if (recurrence === "daily") {
+      d.setDate(d.getDate() + 1);
+    } else if (recurrence === "weekdays") {
+      do {
+        d.setDate(d.getDate() + 1);
+      } while (d.getDay() === 0 || d.getDay() === 6);
+    } else if (recurrence === "weekly") {
+      d.setDate(d.getDate() + 7);
+    } else if (recurrence === "biweekly") {
+      d.setDate(d.getDate() + 14);
+    } else if (recurrence === "monthly") {
+      d.setMonth(d.getMonth() + 1);
+    }
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const hours = String(d.getHours()).padStart(2, "0");
+    const mins = String(d.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${mins}`;
+  }
+
+  function formatRecurrence(recurrence) {
+    switch (recurrence) {
+      case "daily": return "Daily";
+      case "weekdays": return "Weekdays";
+      case "weekly": return "Weekly";
+      case "biweekly": return "Every 2w";
+      case "monthly": return "Monthly";
+      default: return "";
+    }
   }
 
   function categoryName(id) {
@@ -479,6 +593,44 @@ const MOVE_CANCEL_PX = 10;
     const reminderBadge = task.reminderAt && !task.completed
       ? `<span class="chip task-chip-reminder${task.reminderFired ? " fired" : ""}" title="Reminder: ${formatReminderBadge(task.reminderAt)}">🔔 ${formatReminderBadge(task.reminderAt)}</span>`
       : "";
+    const recurrenceBadge = task.recurrence && task.recurrence !== "none"
+      ? `<span class="chip task-chip-recurrence" title="Repeats ${formatRecurrence(task.recurrence)}">🔁 ${formatRecurrence(task.recurrence)}</span>`
+      : "";
+
+    let subtasksHtml = "";
+    if (task.subtasks && task.subtasks.length > 0 && !isCompact) {
+      const total = task.subtasks.length;
+      const done = task.subtasks.filter((s) => s.completed).length;
+      const pct = Math.round((done / total) * 100);
+      const isExpanded = Boolean(state.expandedSubtasks?.[task.id]);
+      const allDone = done === total;
+
+      const itemsHtml = task.subtasks
+        .map(
+          (s) => `
+        <div class="task-subtask-item${s.completed ? " completed" : ""}">
+          <button type="button" class="subtask-check-btn${s.completed ? " checked" : ""}" data-subtask-toggle="${task.id}:${s.id}" aria-label="${s.completed ? "Mark step incomplete" : "Mark step complete"}">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+          </button>
+          <span class="subtask-title">${escapeHtml(s.title)}</span>
+        </div>`
+        )
+        .join("");
+
+      subtasksHtml = `
+        <div class="task-subtasks-summary">
+          <button type="button" class="subtask-progress-btn" data-toggle-subtask-list="${task.id}" title="Toggle checklist">
+            <span class="subtask-progress-bar"><span class="subtask-progress-fill${allDone ? " all-done" : ""}" style="width: ${pct}%"></span></span>
+            <span class="subtask-progress-text">${done}/${total} steps (${pct}%)</span>
+            <span class="subtask-toggle-arrow">${isExpanded ? "▲" : "▼"}</span>
+          </button>
+          <div class="task-subtasks-list" ${isExpanded ? "" : "hidden"}>
+            ${itemsHtml}
+          </div>
+        </div>
+      `;
+    }
+
     const doneClass = task.completed ? " completed" : "";
     const checkClass = task.completed ? " done" : "";
     const compactClass = isCompact ? " compact" : "";
@@ -541,8 +693,10 @@ const MOVE_CANCEL_PX = 10;
               <span class="chip task-chip-time">${task.estimatedTime}h</span>
               ${due}
               ${reminderBadge}
+              ${recurrenceBadge}
               <span class="chip task-chip-category">${escapeHtml(categoryName(task.categoryId))}</span>
-            </div>` : ""}
+            </div>
+            ${subtasksHtml}` : ""}
           </div>
           ${rightControls}
         </article>
@@ -709,6 +863,7 @@ const MOVE_CANCEL_PX = 10;
   }
 
   function fireTaskReminder(task) {
+    activeReminderTaskId = task.id;
     playReminderChime();
     showInAppReminderToast(task);
 
@@ -729,6 +884,11 @@ const MOVE_CANCEL_PX = 10;
         taskId: task.id,
         color: "#f08833",
       },
+      actions: [
+        { action: "complete", title: "✓ Complete" },
+        { action: "snooze_15", title: "⏱ Snooze 15m" },
+        { action: "snooze_60", title: "⏱ Snooze 1h" },
+      ],
     };
 
     if ("Notification" in window && Notification.permission === "granted") {
@@ -755,6 +915,31 @@ const MOVE_CANCEL_PX = 10;
           };
         } catch (_) {}
       }
+    }
+  }
+
+  async function handleNotificationAction(action, taskId) {
+    if (!taskId) return;
+    const task = state.tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    if (action === "complete") {
+      await toggleComplete(task);
+      if (els.reminderToast) els.reminderToast.hidden = true;
+    } else if (action === "snooze_15" || action === "snooze_60") {
+      const addMinutes = action === "snooze_15" ? 15 : 60;
+      const newTime = new Date(Date.now() + addMinutes * 60 * 1000);
+      const year = newTime.getFullYear();
+      const month = String(newTime.getMonth() + 1).padStart(2, "0");
+      const day = String(newTime.getDate()).padStart(2, "0");
+      const hours = String(newTime.getHours()).padStart(2, "0");
+      const mins = String(newTime.getMinutes()).padStart(2, "0");
+      task.reminderAt = `${year}-${month}-${day}T${hours}:${mins}`;
+      task.reminderFired = false;
+      await put("tasks", task);
+      state.tasks = await getAll("tasks");
+      render();
+      if (els.reminderToast) els.reminderToast.hidden = true;
     }
   }
 
@@ -1138,6 +1323,8 @@ const MOVE_CANCEL_PX = 10;
     if (els.moveSheet) els.moveSheet.hidden = true;
     if (els.trackerDialog) els.trackerDialog.hidden = true;
     if (els.bulkPasteSheet) els.bulkPasteSheet.hidden = true;
+    if (els.sheetFocusTimer) els.sheetFocusTimer.hidden = true;
+    if (els.sheetStats) els.sheetStats.hidden = true;
     state.confirmHandler = null;
   }
 
@@ -1345,9 +1532,52 @@ const MOVE_CANCEL_PX = 10;
       : (state.editingTaskId ? "Edit task" : "Add task");
   }
 
+  function renderSubtasksEditor() {
+    if (!els.subtasksEditorList) return;
+    if (els.taskFormSubtaskCount) {
+      els.taskFormSubtaskCount.textContent = `${currentEditingSubtasks.length} step${
+        currentEditingSubtasks.length === 1 ? "" : "s"
+      }`;
+    }
+    if (!currentEditingSubtasks.length) {
+      els.subtasksEditorList.innerHTML = `<span style="font-size: 0.78rem; opacity: 0.6; font-style: italic; padding: 2px 0;">No steps added yet.</span>`;
+      return;
+    }
+    els.subtasksEditorList.innerHTML = currentEditingSubtasks
+      .map(
+        (sub, idx) => `
+      <div class="subtask-editor-item">
+        <span>${escapeHtml(sub.title)}</span>
+        <button type="button" class="btn-subtask-del" data-subtask-del-idx="${idx}" aria-label="Delete step">✕</button>
+      </div>`
+      )
+      .join("");
+  }
+
+  function addSubtaskFromInput() {
+    if (!els.inputNewSubtask) return;
+    const title = els.inputNewSubtask.value.trim();
+    if (!title) return;
+    currentEditingSubtasks.push({
+      id: uid(),
+      title,
+      completed: false,
+    });
+    els.inputNewSubtask.value = "";
+    renderSubtasksEditor();
+    els.inputNewSubtask.focus();
+  }
+
   function openTaskDialog(task) {
     state.editingTaskId = task?.id || null;
     els.taskForm.reset();
+    currentEditingSubtasks = task?.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [];
+    if (els.taskRecurrenceSelect) {
+      els.taskRecurrenceSelect.value = task?.recurrence || "none";
+    }
+    if (els.inputNewSubtask) els.inputNewSubtask.value = "";
+    renderSubtasksEditor();
+
     fillCategorySelect(task?.categoryId || (state.settings.activeTab !== "all" && state.settings.activeTab !== "archive"
       ? state.settings.activeTab
       : ""));
@@ -2387,6 +2617,31 @@ const MOVE_CANCEL_PX = 10;
         return;
       }
 
+      const subtaskBtn = event.target.closest("[data-subtask-toggle]");
+      if (subtaskBtn) {
+        event.stopPropagation();
+        const [taskId, subtaskId] = subtaskBtn.dataset.subtaskToggle.split(":");
+        const task = state.tasks.find((item) => item.id === taskId);
+        if (!task || !task.subtasks) return;
+        const sub = task.subtasks.find((s) => s.id === subtaskId);
+        if (!sub) return;
+        sub.completed = !sub.completed;
+        await put("tasks", task);
+        state.tasks = await getAll("tasks");
+        renderTasks();
+        return;
+      }
+
+      const toggleSubtasksBtn = event.target.closest("[data-toggle-subtask-list]");
+      if (toggleSubtasksBtn) {
+        event.stopPropagation();
+        const taskId = toggleSubtasksBtn.dataset.toggleSubtaskList;
+        if (!state.expandedSubtasks) state.expandedSubtasks = {};
+        state.expandedSubtasks[taskId] = !state.expandedSubtasks[taskId];
+        renderTasks();
+        return;
+      }
+
       const complete = event.target.closest("[data-complete]");
       if (!complete) return;
       const task = state.tasks.find((item) => item.id === complete.dataset.complete);
@@ -2467,11 +2722,51 @@ const MOVE_CANCEL_PX = 10;
       });
     }
 
+    if (els.toastBtnComplete) {
+      els.toastBtnComplete.addEventListener("click", () => {
+        if (activeReminderTaskId) handleNotificationAction("complete", activeReminderTaskId);
+      });
+    }
+    if (els.toastBtnSnooze15) {
+      els.toastBtnSnooze15.addEventListener("click", () => {
+        if (activeReminderTaskId) handleNotificationAction("snooze_15", activeReminderTaskId);
+      });
+    }
+    if (els.toastBtnSnooze60) {
+      els.toastBtnSnooze60.addEventListener("click", () => {
+        if (activeReminderTaskId) handleNotificationAction("snooze_60", activeReminderTaskId);
+      });
+    }
+
+    if (els.btnAddSubtask) {
+      els.btnAddSubtask.addEventListener("click", addSubtaskFromInput);
+    }
+    if (els.inputNewSubtask) {
+      els.inputNewSubtask.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addSubtaskFromInput();
+        }
+      });
+    }
+    if (els.subtasksEditorList) {
+      els.subtasksEditorList.addEventListener("click", (e) => {
+        const delBtn = e.target.closest("[data-subtask-del-idx]");
+        if (delBtn) {
+          const idx = Number(delBtn.dataset.subtaskDelIdx);
+          currentEditingSubtasks.splice(idx, 1);
+          renderSubtasksEditor();
+        }
+      });
+    }
+
     els.taskForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const data = new FormData(els.taskForm);
       const reminderAt = String(data.get("reminderAt") || "");
       const isSubheading = Boolean(els.taskForm.elements.isSubheading?.checked);
+      const recurrence = isSubheading ? "none" : String(data.get("recurrence") || "none");
+      const subtasks = isSubheading ? [] : [...currentEditingSubtasks];
       const payload = {
         name: String(data.get("name") || "").trim(),
         importance: isSubheading ? 3 : Number(data.get("importance") || 3),
@@ -2480,6 +2775,8 @@ const MOVE_CANCEL_PX = 10;
         categoryId: String(data.get("categoryId") || ""),
         reminderAt: isSubheading ? "" : reminderAt,
         isSubheading,
+        recurrence,
+        subtasks,
       };
       if (!payload.name) return;
 
@@ -2843,6 +3140,59 @@ const MOVE_CANCEL_PX = 10;
       els.btnTimerRelaxed.addEventListener("click", () => setTimerPreset(600, 1500));
     }
 
+    if (els.btnFocusTimer) {
+      els.btnFocusTimer.addEventListener("click", openFocusTimerSheet);
+    }
+    if (els.btnCloseFocus) {
+      els.btnCloseFocus.addEventListener("click", closeOverlays);
+    }
+    if (els.btnFocusToggle) {
+      els.btnFocusToggle.addEventListener("click", toggleFocusTimer);
+    }
+    if (els.btnFocusReset) {
+      els.btnFocusReset.addEventListener("click", resetFocusTimer);
+    }
+    if (els.btnFocusDone) {
+      els.btnFocusDone.addEventListener("click", finishFocusTimer);
+    }
+    if (els.focusTaskSelect) {
+      els.focusTaskSelect.addEventListener("change", () => {
+        focusTimer.selectedTaskId = els.focusTaskSelect.value;
+        const task = state.tasks.find((t) => t.id === focusTimer.selectedTaskId);
+        if (task && els.focusPresetTask) {
+          const estMins = Math.max(5, Math.round((task.estimatedTime || 1) * 60));
+          els.focusPresetTask.textContent = `${estMins}m Est.`;
+        }
+      });
+    }
+    document.querySelectorAll(".focus-presets-row .focus-preset-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".focus-presets-row .focus-preset-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const val = btn.dataset.mins;
+        let mins = 25;
+        if (val === "task") {
+          const taskId = els.focusTaskSelect?.value;
+          const task = state.tasks.find((t) => t.id === taskId);
+          mins = task ? Math.max(5, Math.round((task.estimatedTime || 1) * 60)) : 25;
+        } else {
+          mins = Number(val) || 25;
+        }
+        clearInterval(focusTimer.intervalId);
+        focusTimer.isRunning = false;
+        focusTimer.totalSeconds = mins * 60;
+        focusTimer.remainingSeconds = mins * 60;
+        updateFocusTimerDisplay();
+      });
+    });
+
+    if (els.btnStats) {
+      els.btnStats.addEventListener("click", openStatsSheet);
+    }
+    if (els.btnCloseStats) {
+      els.btnCloseStats.addEventListener("click", closeOverlays);
+    }
+
     setupDrag();
     setupTabInteraction();
     setupTabScroll();
@@ -3017,9 +3367,221 @@ const MOVE_CANCEL_PX = 10;
   }
 
   async function toggleComplete(task) {
-    await put("tasks", { ...task, completed: !task.completed });
+    const isBecomingCompleted = !task.completed;
+    const completedAt = isBecomingCompleted ? new Date().toISOString() : null;
+
+    if (isBecomingCompleted && task.recurrence && task.recurrence !== "none") {
+      const nextDueDate = computeNextRecurrenceDate(task.dueDate || todayISO(), task.recurrence);
+      const nextReminderAt = task.reminderAt ? computeNextReminderDate(task.reminderAt, task.recurrence) : "";
+      const nextSubtasks = (task.subtasks || []).map((s) => ({ ...s, id: uid(), completed: false }));
+
+      const nextTask = {
+        ...task,
+        id: uid(),
+        completed: false,
+        completedAt: null,
+        dueDate: nextDueDate,
+        reminderAt: nextReminderAt,
+        reminderFired: false,
+        subtasks: nextSubtasks,
+        sortPosition: await nextSortPosition(),
+      };
+      await put("tasks", nextTask);
+      showToast(`Completed! Next occurrence scheduled for ${nextDueDate || "next cycle"}`);
+    }
+
+    await put("tasks", { ...task, completed: isBecomingCompleted, completedAt });
     state.tasks = await getAll("tasks");
     render();
+  }
+
+  function openFocusTimerSheet() {
+    if (!els.sheetFocusTimer) return;
+    const activeTasks = state.tasks.filter((t) => !t.completed && !t.isSubheading);
+    let options = `<option value="">General Focus (No task linked)</option>`;
+    options += activeTasks
+      .map((t) => `<option value="${t.id}">${escapeHtml(t.name)} (${t.estimatedTime}h)</option>`)
+      .join("");
+    if (els.focusTaskSelect) {
+      els.focusTaskSelect.innerHTML = options;
+      if (focusTimer.selectedTaskId) {
+        els.focusTaskSelect.value = focusTimer.selectedTaskId;
+      }
+    }
+    updateFocusTimerDisplay();
+    openOverlay(els.sheetFocusTimer);
+  }
+
+  function updateFocusTimerDisplay() {
+    if (!els.focusTimeDisplay) return;
+    const mins = Math.floor(focusTimer.remainingSeconds / 60);
+    const secs = focusTimer.remainingSeconds % 60;
+    els.focusTimeDisplay.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+    if (els.focusStateLabel) {
+      els.focusStateLabel.textContent = focusTimer.isRunning
+        ? "Focusing"
+        : focusTimer.remainingSeconds === 0
+          ? "Completed!"
+          : focusTimer.remainingSeconds === focusTimer.totalSeconds
+            ? "Ready"
+            : "Paused";
+    }
+
+    if (els.btnFocusToggle) {
+      els.btnFocusToggle.textContent = focusTimer.isRunning ? "Pause" : "Start Focus";
+    }
+
+    if (els.focusClockProgress) {
+      const circumference = 440;
+      const progress =
+        focusTimer.totalSeconds > 0
+          ? (focusTimer.totalSeconds - focusTimer.remainingSeconds) / focusTimer.totalSeconds
+          : 0;
+      const offset = circumference * (1 - progress);
+      els.focusClockProgress.style.strokeDashoffset = String(offset);
+      els.focusClockProgress.classList.toggle("running", focusTimer.isRunning);
+    }
+  }
+
+  function toggleFocusTimer() {
+    if (focusTimer.isRunning) {
+      clearInterval(focusTimer.intervalId);
+      focusTimer.isRunning = false;
+      updateFocusTimerDisplay();
+    } else {
+      if (focusTimer.remainingSeconds <= 0) {
+        focusTimer.remainingSeconds = focusTimer.totalSeconds;
+      }
+      focusTimer.isRunning = true;
+      updateFocusTimerDisplay();
+      focusTimer.intervalId = setInterval(() => {
+        if (focusTimer.remainingSeconds > 0) {
+          focusTimer.remainingSeconds--;
+          updateFocusTimerDisplay();
+        } else {
+          clearInterval(focusTimer.intervalId);
+          focusTimer.isRunning = false;
+          updateFocusTimerDisplay();
+          playReminderChime();
+          flashStatusBarColor("#f08833");
+          logFocusTime(Math.round(focusTimer.totalSeconds / 60));
+          if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+        }
+      }, 1000);
+    }
+  }
+
+  function resetFocusTimer() {
+    clearInterval(focusTimer.intervalId);
+    focusTimer.isRunning = false;
+    focusTimer.remainingSeconds = focusTimer.totalSeconds;
+    updateFocusTimerDisplay();
+  }
+
+  function finishFocusTimer() {
+    clearInterval(focusTimer.intervalId);
+    focusTimer.isRunning = false;
+    const elapsedSeconds = focusTimer.totalSeconds - focusTimer.remainingSeconds;
+    const elapsedMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
+    logFocusTime(elapsedMinutes);
+    focusTimer.remainingSeconds = focusTimer.totalSeconds;
+    updateFocusTimerDisplay();
+    showToast(`Logged ${elapsedMinutes}m of focus time!`);
+  }
+
+  async function logFocusTime(minutes) {
+    if (!minutes || minutes <= 0) return;
+    const today = todayISO();
+    if (!state.settings.focusLog) state.settings.focusLog = {};
+    state.settings.focusLog[today] = (state.settings.focusLog[today] || 0) + minutes;
+    state.settings.focusMinutesTotal = (state.settings.focusMinutesTotal || 0) + minutes;
+    await put("settings", { id: "user-settings", ...state.settings });
+  }
+
+  function openStatsSheet() {
+    if (!els.sheetStats) return;
+    renderProductivityStats();
+    openOverlay(els.sheetStats);
+  }
+
+  function renderProductivityStats() {
+    const today = todayISO();
+    const tasks = state.tasks;
+    const completedTasks = tasks.filter((t) => t.completed && !t.isSubheading);
+
+    const completionDates = new Set();
+    completedTasks.forEach((t) => {
+      const d = t.completedAt ? t.completedAt.slice(0, 10) : t.dueDate || today;
+      completionDates.add(d);
+    });
+
+    let streak = 0;
+    const checkDate = new Date();
+    const todayStr = checkDate.toISOString().slice(0, 10);
+    if (!completionDates.has(todayStr)) {
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+    while (completionDates.has(checkDate.toISOString().slice(0, 10))) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    const doneToday = completedTasks.filter((t) => {
+      const d = t.completedAt ? t.completedAt.slice(0, 10) : t.dueDate;
+      return d === today;
+    }).length;
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysStr = sevenDaysAgo.toISOString().slice(0, 10);
+    const doneWeek = completedTasks.filter((t) => {
+      const d = t.completedAt ? t.completedAt.slice(0, 10) : t.dueDate;
+      return d && d >= sevenDaysStr;
+    }).length;
+
+    const todayFocus = state.settings.focusLog?.[today] || 0;
+
+    if (els.statsStreakVal) els.statsStreakVal.textContent = streak;
+    if (els.statsCompletedToday) els.statsCompletedToday.textContent = doneToday;
+    if (els.statsCompletedWeek) els.statsCompletedWeek.textContent = doneWeek;
+    if (els.statsFocusMins) els.statsFocusMins.textContent = `${todayFocus}m`;
+
+    if (els.statsCategoryBars) {
+      const categories = state.categories;
+      if (!categories.length) {
+        els.statsCategoryBars.innerHTML = `<span style="font-size:0.8rem; opacity:0.6;">No categories yet.</span>`;
+      } else {
+        els.statsCategoryBars.innerHTML = categories
+          .map((cat) => {
+            const catTasks = tasks.filter((t) => t.categoryId === cat.id && !t.isSubheading);
+            const total = catTasks.length;
+            const done = catTasks.filter((t) => t.completed).length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            return `
+            <div class="stats-bar-item">
+              <div class="stats-bar-info">
+                <span class="stats-bar-label">${escapeHtml(cat.name)}</span>
+                <span class="stats-bar-count">${done}/${total} (${pct}%)</span>
+              </div>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width: ${pct}%"></div>
+              </div>
+            </div>`;
+          })
+          .join("");
+      }
+    }
+
+    const quickWins = tasks.filter((t) => !t.isSubheading && t.importance >= 4 && t.estimatedTime <= 2);
+    const doneQuickWins = quickWins.filter((t) => t.completed).length;
+    const qwPct = quickWins.length > 0 ? Math.round((doneQuickWins / quickWins.length) * 100) : 0;
+    if (els.statsQuickwinsRatio) {
+      els.statsQuickwinsRatio.textContent = `${doneQuickWins}/${quickWins.length} (${qwPct}%)`;
+    }
+    if (els.statsQuickwinsFill) {
+      els.statsQuickwinsFill.style.width = `${qwPct}%`;
+    }
   }
 
   async function init() {
@@ -3037,6 +3599,11 @@ const MOVE_CANCEL_PX = 10;
       navigator.serviceWorker.register("./sw.js").then((reg) => {
         reg.update();
       }).catch(() => {});
+      navigator.serviceWorker.addEventListener("message", async (e) => {
+        if (e.data?.type === "NOTIFICATION_ACTION") {
+          await handleNotificationAction(e.data.action, e.data.taskId);
+        }
+      });
     }
     checkPendingReminders();
     setInterval(checkPendingReminders, 15000);

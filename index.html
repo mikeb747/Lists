@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/favicon.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.5.7" />
+    <link rel="stylesheet" href="./styles.css?v=1.6.0" />
   </head>
   <body>
     <div id="app">
@@ -27,6 +27,16 @@
           <p id="sort-caption" class="sort-caption">Manual order</p>
         </div>
         <div class="bar-actions">
+          <button type="button" id="btn-focus-timer" class="icon-btn" aria-label="Focus timer" title="Focus timer">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
+            </svg>
+          </button>
+          <button type="button" id="btn-stats" class="icon-btn" aria-label="Productivity stats" title="Productivity stats">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+            </svg>
+          </button>
           <button type="button" id="btn-bulk-paste" class="icon-btn" aria-label="Paste multiple tasks" title="Paste multiple tasks">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -142,6 +152,100 @@
         <div class="dialog-actions" style="margin-top: 14px;">
           <button type="button" id="bulk-paste-cancel" class="btn-text">Cancel</button>
           <button type="button" id="bulk-paste-submit" class="btn-filled" disabled>Add Tasks</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Focus Timer Sheet -->
+    <section id="sheet-focus-timer" class="sheet sheet-focus" role="dialog" aria-modal="true" aria-labelledby="focus-timer-title" hidden>
+      <div class="sheet-handle"></div>
+      <div class="sheet-header-row">
+        <div>
+          <h2 id="focus-timer-title">Focus Timer</h2>
+          <p class="sheet-note">Stay in the zone with interval focus sessions.</p>
+        </div>
+        <button type="button" id="btn-close-focus" class="btn-icon-subtle" aria-label="Close focus timer">✕</button>
+      </div>
+
+      <div class="focus-timer-content">
+        <label class="focus-task-select-label">
+          <span>Focusing On</span>
+          <select id="focus-task-select" class="focus-select"></select>
+        </label>
+
+        <div class="focus-presets-row">
+          <button type="button" class="focus-preset-btn active" data-mins="25">25m Pomodoro</button>
+          <button type="button" class="focus-preset-btn" data-mins="15">15m Sprint</button>
+          <button type="button" class="focus-preset-btn" data-mins="45">45m Deep</button>
+          <button type="button" class="focus-preset-btn" data-mins="task" id="focus-preset-task">Task Est.</button>
+        </div>
+
+        <div class="focus-clock-container">
+          <svg class="focus-clock-svg" viewBox="0 0 160 160">
+            <circle class="focus-clock-track" cx="80" cy="80" r="70" />
+            <circle class="focus-clock-fill" id="focus-clock-progress" cx="80" cy="80" r="70" />
+          </svg>
+          <div class="focus-clock-center">
+            <span class="focus-time-display" id="focus-time-display">25:00</span>
+            <span class="focus-state-label" id="focus-state-label">Ready</span>
+          </div>
+        </div>
+
+        <div class="focus-controls-row">
+          <button type="button" id="btn-focus-reset" class="btn-text" title="Reset timer">Reset</button>
+          <button type="button" id="btn-focus-toggle" class="btn-filled focus-primary-btn">Start Focus</button>
+          <button type="button" id="btn-focus-done" class="btn-text" title="Log completed session">Finish</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Productivity Insights Sheet -->
+    <section id="sheet-stats" class="sheet sheet-stats" role="dialog" aria-modal="true" aria-labelledby="stats-title" hidden>
+      <div class="sheet-handle"></div>
+      <div class="sheet-header-row">
+        <div>
+          <h2 id="stats-title">Productivity Insights</h2>
+          <p class="sheet-note">Your task completion streaks and focus history.</p>
+        </div>
+        <button type="button" id="btn-close-stats" class="btn-icon-subtle" aria-label="Close insights">✕</button>
+      </div>
+
+      <div class="stats-content">
+        <div class="stats-metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon">🔥</div>
+            <div class="metric-value" id="stats-streak-val">0</div>
+            <div class="metric-label">Day Streak</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">✓</div>
+            <div class="metric-value" id="stats-completed-today">0</div>
+            <div class="metric-label">Done Today</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">📅</div>
+            <div class="metric-value" id="stats-completed-week">0</div>
+            <div class="metric-label">This Week</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">⏱</div>
+            <div class="metric-value" id="stats-focus-mins">0m</div>
+            <div class="metric-label">Focus Logged</div>
+          </div>
+        </div>
+
+        <div class="stats-section-title">Completion By List</div>
+        <div id="stats-category-bars" class="stats-category-bars"></div>
+
+        <div class="stats-section-title">Quick Win Velocity</div>
+        <div class="stats-velocity-card">
+          <div class="velocity-row">
+            <span>High Priority Quick Wins</span>
+            <strong id="stats-quickwins-ratio">0/0</strong>
+          </div>
+          <div class="velocity-bar-track">
+            <div class="velocity-bar-fill" id="stats-quickwins-fill" style="width: 0%;"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -395,7 +499,7 @@
         </div>
 
         <div class="settings-footer">
-          <span class="settings-version" id="settings-version-string">Lists v1.5.7 • Offline PWA</span>
+          <span class="settings-version" id="settings-version-string">Lists v1.6.0 • Offline PWA</span>
         </div>
       </div>
     </section>
@@ -484,6 +588,28 @@
               <button type="button" class="preset-chip" data-preset="due-9am">Due Date 9 AM</button>
             </div>
           </div>
+          <label>
+            Repeat (Recurring)
+            <select name="recurrence" id="task-recurrence-select">
+              <option value="none">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekdays">Every weekday (Mon–Fri)</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </label>
+          <div class="form-row-subtasks">
+            <div class="subtasks-header-row">
+              <label class="subtasks-label">Subtask Checklist</label>
+              <span class="subtasks-count-hint" id="task-form-subtask-count">0 items</span>
+            </div>
+            <div class="subtask-add-row">
+              <input type="text" id="input-new-subtask" placeholder="Add a step / checklist item..." maxlength="120" autocomplete="off" />
+              <button type="button" id="btn-add-subtask" class="btn-text-sm" title="Add step">+ Add</button>
+            </div>
+            <div id="subtasks-editor-list" class="subtasks-editor-list"></div>
+          </div>
         </div>
         <label>
           Category
@@ -571,16 +697,23 @@
     </section>
 
     <div id="reminder-toast" class="reminder-toast" role="alert" aria-live="assertive" hidden>
-      <div class="toast-icon">
-        <img src="./icons/icon-512.png" alt="" width="26" height="26" style="border-radius: 6px; display: block;" />
+      <div class="toast-main-row">
+        <div class="toast-icon">
+          <img src="./icons/icon-512.png" alt="" width="26" height="26" style="border-radius: 6px; display: block;" />
+        </div>
+        <div class="toast-body">
+          <strong id="toast-title">Task Reminder</strong>
+          <p id="toast-msg">Due soon</p>
+        </div>
+        <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
       </div>
-      <div class="toast-body">
-        <strong id="toast-title">Task Reminder</strong>
-        <p id="toast-msg">Due soon</p>
+      <div class="toast-actions-row">
+        <button type="button" id="toast-btn-complete" class="toast-action-btn complete">✓ Complete</button>
+        <button type="button" id="toast-btn-snooze-15" class="toast-action-btn snooze">⏱ Snooze 15m</button>
+        <button type="button" id="toast-btn-snooze-60" class="toast-action-btn snooze">⏱ Snooze 1h</button>
       </div>
-      <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <script type="module" src="./app.js?v=1.5.7"></script>
+    <script type="module" src="./app.js?v=1.6.0"></script>
   </body>
 </html>
