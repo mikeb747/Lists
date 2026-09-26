@@ -17,13 +17,13 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/favicon.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.5.5" />
+    <link rel="stylesheet" href="./styles.css?v=1.5.6" />
   </head>
   <body>
     <div id="app">
       <header class="top-app-bar">
         <div class="bar-title">
-          <h1>Lists</h1>
+          <h1 id="app-title" class="app-title-header" title="Long press to change program name" tabindex="0" role="button" aria-label="Lists. Long press to change program name.">Lists</h1>
           <p id="sort-caption" class="sort-caption">Manual order</p>
         </div>
         <div class="bar-actions">
@@ -395,7 +395,7 @@
         </div>
 
         <div class="settings-footer">
-          <span class="settings-version">Lists v1.5.5 • Offline PWA</span>
+          <span class="settings-version" id="settings-version-string">Lists v1.5.6 • Offline PWA</span>
         </div>
       </div>
     </section>
@@ -510,6 +510,22 @@
       </form>
     </section>
 
+    <section id="dialog-app-name" class="dialog" role="dialog" aria-labelledby="app-name-dialog-title" hidden>
+      <form id="app-name-form">
+        <h2 id="app-name-dialog-title">Change Program Name</h2>
+        <p class="dialog-hint" style="margin: 0 0 14px 0; font-size: 0.8rem; color: var(--md-on-surface-variant); line-height: 1.4;">Customize the program name shown in the top header and browser tab.</p>
+        <label>
+          Program Name
+          <input type="text" id="app-name-input" name="appName" required maxlength="36" autocomplete="off" />
+        </label>
+        <div class="dialog-actions">
+          <button type="button" id="app-name-reset" class="btn-text">Reset to Lists</button>
+          <button type="button" id="app-name-cancel" class="btn-text">Cancel</button>
+          <button type="submit" class="btn-filled">Save</button>
+        </div>
+      </form>
+    </section>
+
     <section id="dialog-confirm" class="dialog" role="alertdialog" aria-labelledby="confirm-title" hidden>
       <h2 id="confirm-title">Delete?</h2>
       <p id="confirm-message">This cannot be undone.</p>
@@ -555,7 +571,9 @@
     </section>
 
     <div id="reminder-toast" class="reminder-toast" role="alert" aria-live="assertive" hidden>
-      <div class="toast-icon">🔔</div>
+      <div class="toast-icon">
+        <img src="./icons/notification.png" alt="" width="24" height="24" class="toast-notif-img" />
+      </div>
       <div class="toast-body">
         <strong id="toast-title">Task Reminder</strong>
         <p id="toast-msg">Due soon</p>
@@ -563,6 +581,6 @@
       <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <script type="module" src="./app.js?v=1.5.5"></script>
+    <script type="module" src="./app.js?v=1.5.6"></script>
   </body>
 </html>

@@ -24,6 +24,12 @@ const MOVE_CANCEL_PX = 10;
   };
 
   const els = {
+    appTitle: document.getElementById("app-title"),
+    appNameDialog: document.getElementById("dialog-app-name"),
+    appNameForm: document.getElementById("app-name-form"),
+    appNameInput: document.getElementById("app-name-input"),
+    appNameReset: document.getElementById("app-name-reset"),
+    appNameCancel: document.getElementById("app-name-cancel"),
     tabs: document.getElementById("category-tabs"),
     list: document.getElementById("task-list"),
     caption: document.getElementById("sort-caption"),
@@ -141,6 +147,7 @@ const MOVE_CANCEL_PX = 10;
       tabColors: {},
       tabDragHoldMs: 400,
       tabOptionsHoldMs: 1000,
+      appName: "Lists",
     },
     editingTaskId: null,
     editingCategoryId: null,
@@ -544,6 +551,11 @@ const MOVE_CANCEL_PX = 10;
 
   function render() {
     applyTheme();
+    const appName = state.settings.appName || "Lists";
+    if (els.appTitle) {
+      els.appTitle.textContent = appName;
+    }
+    document.title = appName;
     renderTabs();
     renderTasks();
     syncFilterSheet();
@@ -684,33 +696,65 @@ const MOVE_CANCEL_PX = 10;
     }, 8000);
   }
 
+  let themeColorResetTimer = null;
+  function flashStatusBarColor(color = "#f08833") {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute("content", color);
+    }
+    if (themeColorResetTimer) clearTimeout(themeColorResetTimer);
+    themeColorResetTimer = setTimeout(() => {
+      applyTheme();
+    }, 14000);
+  }
+
   function fireTaskReminder(task) {
     playReminderChime();
     showInAppReminderToast(task);
 
+    // Flash Android status bar theme color to #f08833
+    flashStatusBarColor("#f08833");
+
+    const appName = state.settings.appName || "Lists";
+    const notifTitle = `Reminder: ${task.name}`;
+    const notifOptions = {
+      body: `${appName} • ${task.dueDate ? `Due ${task.dueDate} • ` : ""}Importance ${task.importance}/5`,
+      icon: "./icons/notification.png",
+      badge: "./icons/notification.png",
+      image: "./icons/notification.png",
+      tag: `task-reminder-${task.id}`,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [250, 100, 250],
+      data: {
+        taskId: task.id,
+        color: "#f08833",
+      },
+    };
+
     if ("Notification" in window && Notification.permission === "granted") {
-      try {
-        const notif = new Notification(`Reminder: ${task.name}`, {
-          body: `Lists • ${task.dueDate ? `Due ${task.dueDate} • ` : ""}Importance ${task.importance}/5`,
-          icon: "./icons/icon-192.png",
-          badge: "./icons/icon-192.png",
-          tag: `task-reminder-${task.id}`,
-        });
-        notif.onclick = () => {
-          window.focus();
-          notif.close();
-        };
-      } catch {
-        if ("serviceWorker" in navigator && navigator.serviceWorker.ready) {
-          navigator.serviceWorker.ready.then((reg) => {
-            reg.showNotification(`Reminder: ${task.name}`, {
-              body: `Lists • ${task.dueDate ? `Due ${task.dueDate} • ` : ""}Importance ${task.importance}/5`,
-              icon: "./icons/icon-192.png",
-              badge: "./icons/icon-192.png",
-              tag: `task-reminder-${task.id}`,
-            }).catch(() => {});
+      if ("serviceWorker" in navigator && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready
+          .then((reg) => {
+            return reg.showNotification(notifTitle, notifOptions);
+          })
+          .catch(() => {
+            try {
+              const notif = new Notification(notifTitle, notifOptions);
+              notif.onclick = () => {
+                window.focus();
+                notif.close();
+              };
+            } catch (_) {}
           });
-        }
+      } else {
+        try {
+          const notif = new Notification(notifTitle, notifOptions);
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+          };
+        } catch (_) {}
       }
     }
   }
@@ -1090,11 +1134,26 @@ const MOVE_CANCEL_PX = 10;
     els.taskDialog.hidden = true;
     els.categoryDialog.hidden = true;
     els.confirmDialog.hidden = true;
+    if (els.appNameDialog) els.appNameDialog.hidden = true;
     if (els.settingsSheet) els.settingsSheet.hidden = true;
     if (els.moveSheet) els.moveSheet.hidden = true;
     if (els.trackerDialog) els.trackerDialog.hidden = true;
     if (els.bulkPasteSheet) els.bulkPasteSheet.hidden = true;
     state.confirmHandler = null;
+  }
+
+  function openRenameAppDialog() {
+    if (!els.appNameDialog) return;
+    if (els.appNameInput) {
+      els.appNameInput.value = state.settings.appName || "Lists";
+    }
+    openOverlay(els.appNameDialog);
+    setTimeout(() => {
+      if (els.appNameInput) {
+        els.appNameInput.focus();
+        els.appNameInput.select();
+      }
+    }, 120);
   }
 
   function openMoveTaskSheet(task) {
@@ -2474,6 +2533,78 @@ const MOVE_CANCEL_PX = 10;
     });
 
     document.getElementById("category-cancel").addEventListener("click", closeOverlays);
+
+    if (els.appNameForm) {
+      els.appNameForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const val = String(els.appNameInput?.value || "").trim() || "Lists";
+        state.settings.appName = val;
+        await saveSettings();
+        if (els.appTitle) els.appTitle.textContent = val;
+        document.title = val;
+        closeOverlays();
+        showToast(`Program name set to “${val}”`);
+      });
+    }
+
+    if (els.appNameReset) {
+      els.appNameReset.addEventListener("click", async () => {
+        state.settings.appName = "Lists";
+        await saveSettings();
+        if (els.appTitle) els.appTitle.textContent = "Lists";
+        document.title = "Lists";
+        closeOverlays();
+        showToast("Program name reset to “Lists”");
+      });
+    }
+
+    if (els.appNameCancel) {
+      els.appNameCancel.addEventListener("click", closeOverlays);
+    }
+
+    if (els.appTitle) {
+      let titleTimer = null;
+      let titleStartX = 0;
+      let titleStartY = 0;
+
+      const clearTitleTimer = () => {
+        if (titleTimer) {
+          clearTimeout(titleTimer);
+          titleTimer = null;
+        }
+      };
+
+      els.appTitle.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        titleStartX = e.clientX;
+        titleStartY = e.clientY;
+        clearTitleTimer();
+
+        titleTimer = setTimeout(() => {
+          if (navigator.vibrate) {
+            try { navigator.vibrate(35); } catch (_) {}
+          }
+          openRenameAppDialog();
+        }, 450);
+      });
+
+      els.appTitle.addEventListener("pointermove", (e) => {
+        if (!titleTimer) return;
+        if (Math.hypot(e.clientX - titleStartX, e.clientY - titleStartY) > 10) {
+          clearTitleTimer();
+        }
+      });
+
+      els.appTitle.addEventListener("pointerup", clearTitleTimer);
+      els.appTitle.addEventListener("pointercancel", clearTitleTimer);
+
+      els.appTitle.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openRenameAppDialog();
+        }
+      });
+    }
 
     els.taskActions.addEventListener("click", async (event) => {
       const action = event.target.closest("[data-action]")?.dataset.action;

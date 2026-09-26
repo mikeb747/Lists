@@ -1,4 +1,4 @@
-const CACHE_NAME = "priority-planner-v11";
+const CACHE_NAME = "priority-planner-v12";
 const ASSETS = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const ASSETS = [
   "./icons/icon-512.png",
   "./icons/maskable_icon_x512.png",
   "./icons/favicon.png",
+  "./icons/notification.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -38,5 +39,17 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow("./");
+    })
   );
 });

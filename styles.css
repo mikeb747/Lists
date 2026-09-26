@@ -173,11 +173,31 @@ body {
   background: var(--md-surface);
 }
 
-.bar-title h1 {
+.bar-title h1,
+.app-title-header {
   margin: 0;
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.01em;
+  color: var(--md-on-surface);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+}
+
+.app-title-header:hover {
+  background-color: var(--md-surface-container-high);
+}
+
+.app-title-header:active {
+  background-color: var(--md-surface-container-highest);
+  transform: scale(0.97);
+  opacity: 0.85;
 }
 
 .sort-caption {
@@ -2096,12 +2116,19 @@ html[data-theme="dark"] .drive-status-message.error {
 }
 
 .chip.task-chip-reminder {
-  background: var(--md-secondary-container, #e8def8);
-  color: var(--md-on-secondary-container, #1d192b);
-  border: 1px solid rgba(103, 80, 164, 0.25);
+  background: rgba(240, 136, 51, 0.14);
+  color: #b85406;
+  border: 1px solid rgba(240, 136, 51, 0.45);
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .chip.task-chip-reminder {
+  background: rgba(240, 136, 51, 0.22);
+  color: #ffaa66;
+  border-color: rgba(240, 136, 51, 0.55);
 }
 
 .chip.task-chip-reminder.fired {
@@ -2120,7 +2147,8 @@ html[data-theme="dark"] .drive-status-message.error {
   color: var(--md-inverse-on-surface, #f4eff4);
   padding: 12px 16px;
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border: 2px solid #f08833;
+  box-shadow: 0 8px 24px rgba(240, 136, 51, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2133,8 +2161,21 @@ html[data-theme="dark"] .drive-status-message.error {
 }
 
 .toast-icon {
-  font-size: 1.4rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f08833;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(240, 136, 51, 0.4);
+}
+
+.toast-notif-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
 }
 
 .toast-body {
