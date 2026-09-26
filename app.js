@@ -113,6 +113,13 @@ const MOVE_CANCEL_PX = 10;
     tabsWrapper: document.getElementById("tabs-wrapper"),
     tabScrollLeft: document.getElementById("tab-scroll-left"),
     tabScrollRight: document.getElementById("tab-scroll-right"),
+    inputTimer1: document.getElementById("input-timer1"),
+    inputTimer2: document.getElementById("input-timer2"),
+    valTimer1: document.getElementById("val-timer1"),
+    valTimer2: document.getElementById("val-timer2"),
+    btnTimerFast: document.getElementById("btn-timer-preset-fast"),
+    btnTimerDefault: document.getElementById("btn-timer-preset-default"),
+    btnTimerRelaxed: document.getElementById("btn-timer-preset-relaxed"),
   };
 
   const state = {
@@ -131,6 +138,9 @@ const MOVE_CANCEL_PX = 10;
       colorTheme: "purple",
       activeTab: "all",
       compactTabs: {},
+      tabColors: {},
+      tabDragHoldMs: 400,
+      tabOptionsHoldMs: 1000,
     },
     editingTaskId: null,
     editingCategoryId: null,
@@ -565,6 +575,13 @@ const MOVE_CANCEL_PX = 10;
       const percent = Math.round((doneCount / total) * 100);
       els.settingsTrackerBadge.textContent = `${doneCount} of ${total} features complete (${percent}%)`;
     }
+
+    const t1 = Number(state.settings.tabDragHoldMs) || 400;
+    const t2 = Number(state.settings.tabOptionsHoldMs) || 1000;
+    if (els.inputTimer1) els.inputTimer1.value = t1;
+    if (els.valTimer1) els.valTimer1.textContent = `${t1} ms`;
+    if (els.inputTimer2) els.inputTimer2.value = t2;
+    if (els.valTimer2) els.valTimer2.textContent = `${t2} ms`;
 
     updateInstallUI();
     updateNotificationSettingsUI();
@@ -1600,9 +1617,6 @@ const MOVE_CANCEL_PX = 10;
   }
 
   function setupTabInteraction() {
-    const DRAG_HOLD_MS = 400; // 80% of original 500ms
-    const OPTIONS_HOLD_MS = 1000; // 200% of original 500ms
-
     let dragTimer = null;
     let optionsTimer = null;
     let dragActive = false;
@@ -1611,17 +1625,12 @@ const MOVE_CANCEL_PX = 10;
     let activePointerId = null;
     let startX = 0;
     let startY = 0;
+    let currentPointerX = 0;
+    let currentPointerY = 0;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
     let previewEl = null;
-    let autoScrollRaf = null;
-
-    const stopAutoScroll = () => {
-      if (autoScrollRaf) {
-        cancelAnimationFrame(autoScrollRaf);
-        autoScrollRaf = null;
-      }
-    };
+    let dragLockedScrollLeft = 0;
 
     const clearTimers = () => {
       if (dragTimer) {
@@ -1634,8 +1643,23 @@ const MOVE_CANCEL_PX = 10;
       }
     };
 
+    const onTabsScrollDuringDrag = () => {
+      if (dragActive) {
+        els.tabs.scrollLeft = dragLockedScrollLeft;
+      }
+    };
+
+    const onTouchMovePreventScroll = (ev) => {
+      if (dragActive && ev.cancelable) {
+        ev.preventDefault();
+      }
+    };
+
     const cleanupDragVisuals = () => {
-      stopAutoScroll();
+      window.removeEventListener("touchmove", onTouchMovePreventScroll);
+      els.tabs.removeEventListener("scroll", onTabsScrollDuringDrag);
+      els.tabs.style.overflowX = "";
+      els.tabs.style.touchAction = "";
       els.tabs.classList.remove("dragging-tab-mode");
       document.body.classList.remove("dragging-tab-mode");
       if (previewEl) {
@@ -1656,8 +1680,15 @@ const MOVE_CANCEL_PX = 10;
         try { navigator.vibrate(35); } catch (_) {}
       }
 
+      // Freeze horizontal scrolling of the tabs bar on touchscreen mobile & desktop
+      dragLockedScrollLeft = els.tabs.scrollLeft;
+      els.tabs.style.overflowX = "hidden";
+      els.tabs.style.touchAction = "none";
       els.tabs.classList.add("dragging-tab-mode");
       document.body.classList.add("dragging-tab-mode");
+
+      els.tabs.addEventListener("scroll", onTabsScrollDuringDrag, { passive: true });
+      window.addEventListener("touchmove", onTouchMovePreventScroll, { passive: false });
 
       const rect = activeTab.getBoundingClientRect();
       activeTab.classList.add("tab-dragging-placeholder");
@@ -1716,6 +1747,8 @@ const MOVE_CANCEL_PX = 10;
 
     const onPointerMove = (e) => {
       if (!activeTab) return;
+      currentPointerX = e.clientX;
+      currentPointerY = e.clientY;
 
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
@@ -1730,8 +1763,8 @@ const MOVE_CANCEL_PX = 10;
           return;
         }
 
-        // On touch: moving before 400ms timer indicates natural tab scrolling
-        if (dist > 8) {
+        // On touch: only cancel if movement clearly exceeds resting touch deadzone (> 18px)
+        if (dist > 18) {
           clearTimers();
         }
         return;
@@ -1777,35 +1810,11 @@ const MOVE_CANCEL_PX = 10;
         }
       }
 
-      // Smooth auto-scroll when dragging near horizontal bounds
-      const containerRect = els.tabs.getBoundingClientRect();
-      const edgeThreshold = 44;
-      stopAutoScroll();
-
-      if (e.clientX < containerRect.left + edgeThreshold) {
-        const speed = Math.max(3, Math.min(16, (containerRect.left + edgeThreshold - e.clientX) / 2));
-        const scrollLoop = () => {
-          if (!dragActive) return;
-          els.tabs.scrollLeft -= speed;
-          updateTabScrollButtons();
-          autoScrollRaf = requestAnimationFrame(scrollLoop);
-        };
-        autoScrollRaf = requestAnimationFrame(scrollLoop);
-      } else if (e.clientX > containerRect.right - edgeThreshold) {
-        const speed = Math.max(3, Math.min(16, (e.clientX - (containerRect.right - edgeThreshold)) / 2));
-        const scrollLoop = () => {
-          if (!dragActive) return;
-          els.tabs.scrollLeft += speed;
-          updateTabScrollButtons();
-          autoScrollRaf = requestAnimationFrame(scrollLoop);
-        };
-        autoScrollRaf = requestAnimationFrame(scrollLoop);
-      }
+      // Keep tab bar completely still: no auto-scrolling left and right during drag
     };
 
     const onPointerUp = async (e) => {
       clearTimers();
-      stopAutoScroll();
 
       document.removeEventListener("pointermove", onPointerMove);
       document.removeEventListener("pointerup", onPointerUp);
@@ -1822,8 +1831,7 @@ const MOVE_CANCEL_PX = 10;
       }
 
       activePointerId = null;
-      els.tabs.classList.remove("dragging-tab-mode");
-      document.body.classList.remove("dragging-tab-mode");
+      cleanupDragVisuals();
 
       if (wasDragging && tabToCommit) {
         if (previewEl) {
@@ -1835,13 +1843,7 @@ const MOVE_CANCEL_PX = 10;
         }
 
         setTimeout(async () => {
-          if (previewEl) {
-            previewEl.remove();
-            previewEl = null;
-          }
-          if (tabToCommit) {
-            tabToCommit.classList.remove("tab-dragging-placeholder");
-          }
+          cleanupDragVisuals();
 
           if (didMove) {
             // Persist the reordered positions to IndexedDB
@@ -1899,6 +1901,8 @@ const MOVE_CANCEL_PX = 10;
       activePointerId = e.pointerId;
       startX = e.clientX;
       startY = e.clientY;
+      currentPointerX = e.clientX;
+      currentPointerY = e.clientY;
       dragActive = false;
       dragMoved = false;
 
@@ -1908,21 +1912,23 @@ const MOVE_CANCEL_PX = 10;
 
       clearTimers();
 
+      // Read customizable durations from settings
+      const dragHoldMs = Math.max(100, Number(state.settings.tabDragHoldMs) || 400);
+      const optionsHoldMs = Math.max(dragHoldMs + 50, Number(state.settings.tabOptionsHoldMs) || 1000);
+
       // Only selectable tabs get drag & options timers (not '+' add button)
       if (tab.dataset.tab !== "add") {
-        // 1st Timer: 400ms (80% of 500ms) - activates drag mode
+        // 1st Timer: activates drag mode
         dragTimer = setTimeout(() => {
           if (activeTab?.dataset.userCategory === "true") {
-            startDrag(startX, startY);
+            startDrag(currentPointerX, currentPointerY);
           }
-        }, DRAG_HOLD_MS);
+        }, dragHoldMs);
 
-        // 2nd Timer: 1000ms (200% of 500ms) - opens Tab Options sheet
+        // 2nd Timer: opens Tab Options sheet
         optionsTimer = setTimeout(() => {
-          // If the user has started dragging and moved the tab, do NOT open options
           if (dragMoved) return;
 
-          // Otherwise, cancel drag preview if engaged and open options sheet
           cleanupDragVisuals();
           dragActive = false;
           state.suppressTabClick = true;
@@ -1935,7 +1941,7 @@ const MOVE_CANCEL_PX = 10;
           setTimeout(() => {
             state.suppressTabClick = false;
           }, 300);
-        }, OPTIONS_HOLD_MS);
+        }, optionsHoldMs);
       }
 
       document.addEventListener("pointermove", onPointerMove, { passive: false });
@@ -1973,8 +1979,9 @@ const MOVE_CANCEL_PX = 10;
     { section: "Tabs", name: "Desktop tab scroll buttons (< & >)", status: "done", desc: "Scroll arrow buttons on computer screens when there are more tabs than fit." },
     { section: "Tabs", name: "Compact list per tab", status: "done", desc: "Long press any tab to toggle compact mode, hiding importance, time, and tab name chips." },
     { section: "Tabs", name: "Rename tab", status: "done", desc: "Category dialog renames tab and updates associations in real time." },
-    { section: "Tabs", name: "Delete tab", status: "done", desc: "Safe delete confirmation; reassigns associated tasks to Uncategorized." },
-    { section: "Tabs", name: "Change tab background colour", status: "todo", desc: "Color picker palette to assign custom tab colors." },
+    { section: "Tabs", name: "Change tab background colour", status: "done", desc: "11-color palette inside Tab Options sheet with active/inactive adaptive tints." },
+    { section: "Tabs", name: "Customizable Tab Hold Timers", status: "done", desc: "Configure Timer 1 (drag activation) and Timer 2 (tab options) within the Settings pane." },
+    { section: "Tabs", name: "Mobile Tab Drag Scroll Lock", status: "done", desc: "Locks horizontal tab bar scrolling while dragging a tab on mobile touchscreens." },
     { section: "Tabs", name: "Tab Examples", status: "todo", desc: "Quick-add presets for Home, Work, Shopping List, Packing List, Holiday Itinerary, etc." },
 
     // 4. Ordering
@@ -2652,6 +2659,59 @@ const MOVE_CANCEL_PX = 10;
       closeOverlays();
       if (handler) await handler();
     });
+
+    if (els.inputTimer1) {
+      els.inputTimer1.addEventListener("input", async () => {
+        let t1 = Number(els.inputTimer1.value);
+        let t2 = Number(els.inputTimer2?.value || 1000);
+        if (t1 >= t2) {
+          t2 = t1 + 100;
+          if (els.inputTimer2) els.inputTimer2.value = t2;
+          if (els.valTimer2) els.valTimer2.textContent = `${t2} ms`;
+          state.settings.tabOptionsHoldMs = t2;
+        }
+        if (els.valTimer1) els.valTimer1.textContent = `${t1} ms`;
+        state.settings.tabDragHoldMs = t1;
+        await saveSettings();
+      });
+    }
+
+    if (els.inputTimer2) {
+      els.inputTimer2.addEventListener("input", async () => {
+        let t1 = Number(els.inputTimer1?.value || 400);
+        let t2 = Number(els.inputTimer2.value);
+        if (t2 <= t1) {
+          t1 = Math.max(200, t2 - 100);
+          if (els.inputTimer1) els.inputTimer1.value = t1;
+          if (els.valTimer1) els.valTimer1.textContent = `${t1} ms`;
+          state.settings.tabDragHoldMs = t1;
+        }
+        if (els.valTimer2) els.valTimer2.textContent = `${t2} ms`;
+        state.settings.tabOptionsHoldMs = t2;
+        await saveSettings();
+      });
+    }
+
+    const setTimerPreset = async (t1, t2) => {
+      state.settings.tabDragHoldMs = t1;
+      state.settings.tabOptionsHoldMs = t2;
+      if (els.inputTimer1) els.inputTimer1.value = t1;
+      if (els.valTimer1) els.valTimer1.textContent = `${t1} ms`;
+      if (els.inputTimer2) els.inputTimer2.value = t2;
+      if (els.valTimer2) els.valTimer2.textContent = `${t2} ms`;
+      await saveSettings();
+      showToast(`Timers set to ${t1}ms / ${t2}ms`);
+    };
+
+    if (els.btnTimerFast) {
+      els.btnTimerFast.addEventListener("click", () => setTimerPreset(300, 800));
+    }
+    if (els.btnTimerDefault) {
+      els.btnTimerDefault.addEventListener("click", () => setTimerPreset(400, 1000));
+    }
+    if (els.btnTimerRelaxed) {
+      els.btnTimerRelaxed.addEventListener("click", () => setTimerPreset(600, 1500));
+    }
 
     setupDrag();
     setupTabInteraction();

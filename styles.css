@@ -332,9 +332,25 @@ body {
 }
 
 .tabs.dragging-tab-mode {
+  overflow: hidden !important;
+  overflow-x: hidden !important;
   touch-action: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
+  overscroll-behavior: none !important;
+  overscroll-behavior-x: none !important;
+  -webkit-overflow-scrolling: auto !important;
+}
+
+.tabs.dragging-tab-mode .tab {
+  touch-action: none !important;
+}
+
+body.dragging-tab-mode {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  overscroll-behavior: none !important;
 }
 
 /* While dragging, the tab itself remains in DOM as the landing slot */
@@ -1484,6 +1500,63 @@ html[data-theme="dark"] .tracker-pill.pill-partial {
 
 .color-swatch-btn.active .swatch-check {
   display: block;
+}
+
+/* Tab Press Timers in Settings */
+.timer-setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.timer-setting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.timer-setting-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--md-on-surface);
+}
+
+.timer-setting-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+  padding: 2px 10px;
+  border-radius: 12px;
+  min-width: 65px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-setting-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--md-on-surface-variant);
+  line-height: 1.35;
+}
+
+.timer-range-slider {
+  width: 100%;
+  accent-color: var(--md-primary);
+  cursor: pointer;
+  margin-top: 4px;
+  height: 28px;
+}
+
+.timer-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 /* Data & Action buttons */

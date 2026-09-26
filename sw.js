@@ -1,4 +1,4 @@
-const CACHE_NAME = "priority-planner-v10";
+const CACHE_NAME = "priority-planner-v11";
 const ASSETS = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const ASSETS = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/maskable_icon_x512.png",
+  "./icons/favicon.png",
 ];
 
 self.addEventListener("install", (event) => {

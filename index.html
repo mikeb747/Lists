@@ -15,9 +15,9 @@
     <meta name="apple-mobile-web-app-title" content="Planner" />
     <title>Lists</title>
     <link rel="manifest" href="./manifest.json" />
-    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="icon" href="./icons/favicon.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.5.4" />
+    <link rel="stylesheet" href="./styles.css?v=1.5.5" />
   </head>
   <body>
     <div id="app">
@@ -251,6 +251,53 @@
           </button>
         </div>
 
+        <div class="settings-group" id="settings-tab-timers-group">
+          <label class="settings-label">Tab Press Timers</label>
+          <p class="settings-hint">Configure touch &amp; hold durations for dragging tabs and opening tab options on touchscreen devices.</p>
+
+          <div class="timer-setting-item">
+            <div class="timer-setting-header">
+              <span class="timer-setting-title">Timer 1: Drag Activation</span>
+              <span class="timer-setting-value" id="val-timer1">400 ms</span>
+            </div>
+            <p class="timer-setting-hint">Hold a category tab this long to lift it and drag to reorder.</p>
+            <input
+              type="range"
+              id="input-timer1"
+              class="timer-range-slider"
+              min="200"
+              max="1000"
+              step="50"
+              value="400"
+              aria-label="Timer 1 drag activation hold duration"
+            />
+          </div>
+
+          <div class="timer-setting-item">
+            <div class="timer-setting-header">
+              <span class="timer-setting-title">Timer 2: Tab Options</span>
+              <span class="timer-setting-value" id="val-timer2">1000 ms</span>
+            </div>
+            <p class="timer-setting-hint">Hold still without dragging to open color palette and options.</p>
+            <input
+              type="range"
+              id="input-timer2"
+              class="timer-range-slider"
+              min="500"
+              max="2500"
+              step="50"
+              value="1000"
+              aria-label="Timer 2 tab options hold duration"
+            />
+          </div>
+
+          <div class="timer-presets-row">
+            <button type="button" class="preset-chip" id="btn-timer-preset-fast">Fast (300 / 800 ms)</button>
+            <button type="button" class="preset-chip" id="btn-timer-preset-default">Default (400 / 1000 ms)</button>
+            <button type="button" class="preset-chip" id="btn-timer-preset-relaxed">Relaxed (600 / 1500 ms)</button>
+          </div>
+        </div>
+
         <div class="settings-group">
           <label class="settings-label">Reminders &amp; Notifications</label>
           <div class="settings-item-btn" id="notif-settings-row" style="cursor: default;">
@@ -348,7 +395,7 @@
         </div>
 
         <div class="settings-footer">
-          <span class="settings-version">Lists v1.5.4 • Offline PWA</span>
+          <span class="settings-version">Lists v1.5.5 • Offline PWA</span>
         </div>
       </div>
     </section>
@@ -516,6 +563,6 @@
       <button type="button" id="toast-close" class="toast-close" aria-label="Dismiss">✕</button>
     </div>
 
-    <script type="module" src="./app.js?v=1.5.4"></script>
+    <script type="module" src="./app.js?v=1.5.5"></script>
   </body>
 </html>
