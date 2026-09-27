@@ -86,6 +86,9 @@ const MOVE_CANCEL_PX = 10;
     actionCompactBtn: document.getElementById("action-toggle-compact"),
     labelCompact: document.getElementById("label-toggle-compact"),
     badgeCompact: document.getElementById("badge-toggle-compact"),
+    actionToggleHideFromTask: document.getElementById("action-toggle-hide-from-task"),
+    labelHideFromTask: document.getElementById("label-toggle-hide-from-task"),
+    badgeHideFromTask: document.getElementById("badge-toggle-hide-from-task"),
     actionMoveTabLeft: document.getElementById("action-move-tab-left"),
     actionMoveTabRight: document.getElementById("action-move-tab-right"),
     actionRenameCat: document.getElementById("action-rename-cat"),
@@ -174,6 +177,7 @@ const MOVE_CANCEL_PX = 10;
       activeTab: "all",
       compactTabs: {},
       tabColors: {},
+      hiddenFromTasksTabs: {},
       tabDragHoldMs: 400,
       tabOptionsHoldMs: 1000,
       appName: "Lists",
@@ -385,11 +389,21 @@ const MOVE_CANCEL_PX = 10;
 
   const THEME_HEADER_COLORS = {
     purple: "#6750a4",
+    indigo: "#4f46e5",
     blue: "#0061a4",
+    sky: "#0284c7",
+    cyan: "#0891b2",
     teal: "#006a60",
+    mint: "#059669",
     green: "#386a20",
+    lime: "#65a30d",
+    amber: "#d97706",
     orange: "#8b5000",
+    deeporange: "#c2410c",
+    red: "#b91c1c",
     rose: "#984061",
+    pink: "#db2777",
+    slate: "#475569",
   };
 
   function applyTheme() {
@@ -429,7 +443,13 @@ const MOVE_CANCEL_PX = 10;
     if (activeTab === "archive") {
       tasks = tasks.filter((task) => task.completed && !task.isSubheading);
     } else {
-      if (activeTab !== "all") {
+      if (activeTab === "all") {
+        tasks = tasks.filter((task) => {
+          if (task.isSubheading) return false;
+          if (task.categoryId && isTabHiddenFromTasks(task.categoryId)) return false;
+          return true;
+        });
+      } else {
         tasks = tasks.filter((task) => task.categoryId === activeTab);
       }
       if (hideCompleted) {
@@ -504,6 +524,20 @@ const MOVE_CANCEL_PX = 10;
     return false;
   }
 
+  function isTabHiddenFromTasks(tabId) {
+    if (!state.settings.hiddenFromTasksTabs) return false;
+    if (!tabId) return false;
+    if (state.settings.hiddenFromTasksTabs[tabId]) return true;
+    const cat = state.categories.find(
+      (c) => c.id === tabId || c.name.toLowerCase() === String(tabId).toLowerCase()
+    );
+    if (cat) {
+      if (state.settings.hiddenFromTasksTabs[cat.id]) return true;
+      if (state.settings.hiddenFromTasksTabs[cat.name]) return true;
+    }
+    return false;
+  }
+
   function getTabColor(tabId) {
     if (!tabId) return "";
     if (state.settings.tabColors && state.settings.tabColors[tabId]) {
@@ -526,9 +560,11 @@ const MOVE_CANCEL_PX = 10;
     const catAttr = userCategory ? " data-user-category='true'" : "";
     const isCompact = isTabCompact(id);
     const compactAttr = isCompact ? " data-compact='true'" : "";
+    const isHidden = isTabHiddenFromTasks(id);
+    const hiddenAttr = isHidden ? " data-hidden-from-tasks='true'" : "";
     const color = getTabColor(id);
     const colorAttr = color ? ` data-tab-color="${color}"` : "";
-    return `<button type="button" class="tab${activeClass}" data-tab="${id}"${catAttr}${compactAttr}${colorAttr}>${escapeHtml(
+    return `<button type="button" class="tab${activeClass}" data-tab="${id}"${catAttr}${compactAttr}${hiddenAttr}${colorAttr}>${escapeHtml(
       label
     )}</button>`;
   }
@@ -1856,6 +1892,7 @@ const MOVE_CANCEL_PX = 10;
     { id: "purple", name: "Purple" },
     { id: "pink", name: "Pink" },
     { id: "slate", name: "Slate" },
+    { id: "ice", name: "Ice Blue" },
   ];
 
   function openTabOptionsSheet(tabId) {
@@ -1878,7 +1915,17 @@ const MOVE_CANCEL_PX = 10;
       els.badgeCompact.className = isCompact ? "action-badge active" : "action-badge";
     }
 
+    const isHiddenFromTasks = isTabHiddenFromTasks(state.actionTabId);
+    if (els.labelHideFromTask) {
+      els.labelHideFromTask.textContent = "Hide from task";
+    }
+    if (els.badgeHideFromTask) {
+      els.badgeHideFromTask.textContent = isHiddenFromTasks ? "ON" : "OFF";
+      els.badgeHideFromTask.className = isHiddenFromTasks ? "action-badge active" : "action-badge";
+    }
+
     const isUserCat = state.categories.some((item) => item.id === state.actionTabId);
+    if (els.actionToggleHideFromTask) els.actionToggleHideFromTask.hidden = !isUserCat;
     if (els.actionRenameCat) els.actionRenameCat.hidden = !isUserCat;
     if (els.actionDeleteCat) els.actionDeleteCat.hidden = !isUserCat;
 
@@ -2982,6 +3029,24 @@ const MOVE_CANCEL_PX = 10;
         }
         await saveSettings();
         render();
+        return;
+      }
+
+      if (action === "toggle-hide-from-task") {
+        closeOverlays();
+        state.settings.hiddenFromTasksTabs = state.settings.hiddenFromTasksTabs || {};
+        const nextVal = !isTabHiddenFromTasks(state.actionTabId);
+        state.settings.hiddenFromTasksTabs[state.actionTabId] = nextVal;
+        const cat = state.categories.find(
+          (c) => c.id === state.actionTabId || c.name.toLowerCase() === String(state.actionTabId).toLowerCase()
+        );
+        if (cat) {
+          state.settings.hiddenFromTasksTabs[cat.id] = nextVal;
+          state.settings.hiddenFromTasksTabs[cat.name] = nextVal;
+        }
+        await saveSettings();
+        render();
+        showToast(nextVal ? "Tab hidden from All tasks" : "Tab visible in All tasks");
         return;
       }
 

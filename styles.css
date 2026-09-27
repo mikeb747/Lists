@@ -488,7 +488,9 @@ body.modal-open {
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-html[data-theme="light"] .tab:not([data-tab-color]):not(.active) {
+html:not([data-theme="dark"]) .tab:not([data-tab-color]):not(.active),
+html[data-theme="light"] .tab:not([data-tab-color]):not(.active),
+.tab:not([data-tab-color]):not(.active) {
   background: #e9e3eb;
 }
 
@@ -691,10 +693,11 @@ body.dragging-tab-mode {
   box-shadow: 0 3px 10px rgba(236, 72, 153, 0.35);
 }
 
+.tab[data-tab-color="slate"]:not(.active),
 .tab[data-tab-color="slate"] {
-  background: rgba(100, 116, 139, 0.16);
-  color: #334155;
-  border: 1px solid rgba(100, 116, 139, 0.35);
+  background: #cfcfd4;
+  color: #1e293b;
+  border: 1px solid #b8b8be;
 }
 .tab[data-tab-color="slate"].active,
 .tab-ghost-preview[data-tab-color="slate"] {
@@ -702,6 +705,20 @@ body.dragging-tab-mode {
   color: #ffffff !important;
   border-color: #475569 !important;
   box-shadow: 0 3px 10px rgba(100, 116, 139, 0.35);
+}
+
+.tab[data-tab-color="ice"]:not(.active),
+.tab[data-tab-color="ice"] {
+  background: #e7f5fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+.tab[data-tab-color="ice"].active,
+.tab-ghost-preview[data-tab-color="ice"] {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0369a1 !important;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35);
 }
 
 /* Dark mode contrast adjustments for inactive custom tabs */
@@ -751,9 +768,14 @@ html[data-theme="dark"] .tab[data-tab-color="pink"]:not(.active) {
   border-color: rgba(244, 114, 182, 0.4);
 }
 html[data-theme="dark"] .tab[data-tab-color="slate"]:not(.active) {
-  background: rgba(100, 116, 139, 0.22);
-  color: #cbd5e1;
+  background: #475569;
+  color: #f1f5f9;
   border-color: rgba(148, 163, 184, 0.4);
+}
+html[data-theme="dark"] .tab[data-tab-color="ice"]:not(.active) {
+  background: rgba(231, 245, 254, 0.22);
+  color: #e0f2fe;
+  border-color: rgba(186, 230, 253, 0.4);
 }
 
 /* Tab Background Color Picker in Sheet */
@@ -847,6 +869,14 @@ html[data-theme="dark"] .tab[data-tab-color="slate"]:not(.active) {
 .tab-color-swatch[data-color="purple"] { background: #a855f7; }
 .tab-color-swatch[data-color="pink"] { background: #ec4899; }
 .tab-color-swatch[data-color="slate"] { background: #64748b; }
+.tab-color-swatch[data-color="ice"] {
+  background: #e7f5fe;
+  border: 1.5px solid #7dd3fc;
+}
+.tab-color-swatch[data-color="ice"].active::after {
+  color: #0284c7;
+  text-shadow: none;
+}
 
 
 .tab.add {
@@ -1720,14 +1750,13 @@ html[data-theme="dark"] .tracker-pill.pill-partial {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* Colour Theme Picker */
+/* Colour Theme Picker - 2 rows of 8 colours */
 .color-picker-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  padding: 6px 0;
+  justify-items: center;
 }
 
 .color-picker-row::-webkit-scrollbar {
@@ -1735,8 +1764,9 @@ html[data-theme="dark"] .tracker-pill.pill-partial {
 }
 
 .color-swatch-btn {
-  width: 42px;
-  height: 42px;
+  width: 100%;
+  max-width: 36px;
+  aspect-ratio: 1;
   border-radius: 50%;
   border: 2px solid transparent;
   background: var(--swatch-color);
@@ -1747,6 +1777,16 @@ html[data-theme="dark"] .tracker-pill.pill-partial {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   flex-shrink: 0;
+  padding: 0;
+}
+
+@media (min-width: 480px) {
+  .color-picker-row {
+    gap: 10px;
+  }
+  .color-swatch-btn {
+    max-width: 40px;
+  }
 }
 
 .color-swatch-btn:hover {
