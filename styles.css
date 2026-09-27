@@ -7,7 +7,7 @@
   --md-surface-dim: #ded8e1;
   --md-surface-container: #f3edf7;
   --md-surface-container-high: #ece6f0;
-  --md-surface-container-highest: #e6e0e9;
+  --md-surface-container-highest: #e9e3eb;
   --md-on-surface: #1c1b1f;
   --md-on-surface-variant: #49454f;
   --md-outline: #79747e;
@@ -48,8 +48,8 @@ html[data-theme="dark"] {
   color-scheme: dark;
 }
 
-/* Color Theme Palettes */
-/* 1. Purple (Default) */
+/* Color Theme Palettes - 16 Themes (2 rows of 8) */
+/* 1. Purple (Iris) */
 html[data-color="purple"] {
   --md-primary: #6750a4;
   --md-on-primary: #ffffff;
@@ -63,7 +63,21 @@ html[data-theme="dark"][data-color="purple"] {
   --md-on-primary-container: #eaddff;
 }
 
-/* 2. Blue (Ocean) */
+/* 2. Indigo (Royal) */
+html[data-color="indigo"] {
+  --md-primary: #4f46e5;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #e0e7ff;
+  --md-on-primary-container: #1e1b4b;
+}
+html[data-theme="dark"][data-color="indigo"] {
+  --md-primary: #a5b4fc;
+  --md-on-primary: #1e1b4b;
+  --md-primary-container: #3730a3;
+  --md-on-primary-container: #e0e7ff;
+}
+
+/* 3. Blue (Ocean) */
 html[data-color="blue"] {
   --md-primary: #0061a4;
   --md-on-primary: #ffffff;
@@ -77,7 +91,35 @@ html[data-theme="dark"][data-color="blue"] {
   --md-on-primary-container: #d1e4ff;
 }
 
-/* 3. Teal (Emerald) */
+/* 4. Sky (Azure) */
+html[data-color="sky"] {
+  --md-primary: #0284c7;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #e0f2fe;
+  --md-on-primary-container: #082f49;
+}
+html[data-theme="dark"][data-color="sky"] {
+  --md-primary: #7dd3fc;
+  --md-on-primary: #082f49;
+  --md-primary-container: #0369a1;
+  --md-on-primary-container: #e0f2fe;
+}
+
+/* 5. Cyan (Aquamarine) */
+html[data-color="cyan"] {
+  --md-primary: #0891b2;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #cffafe;
+  --md-on-primary-container: #164e63;
+}
+html[data-theme="dark"][data-color="cyan"] {
+  --md-primary: #67e8f9;
+  --md-on-primary: #164e63;
+  --md-primary-container: #0e7490;
+  --md-on-primary-container: #cffafe;
+}
+
+/* 6. Teal (Emerald) */
 html[data-color="teal"] {
   --md-primary: #006a60;
   --md-on-primary: #ffffff;
@@ -91,7 +133,21 @@ html[data-theme="dark"][data-color="teal"] {
   --md-on-primary-container: #73f8e7;
 }
 
-/* 4. Green (Botanical) */
+/* 7. Mint (Spearmint) */
+html[data-color="mint"] {
+  --md-primary: #059669;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #d1fae5;
+  --md-on-primary-container: #064e3b;
+}
+html[data-theme="dark"][data-color="mint"] {
+  --md-primary: #6ee7b7;
+  --md-on-primary: #064e3b;
+  --md-primary-container: #047857;
+  --md-on-primary-container: #d1fae5;
+}
+
+/* 8. Green (Botanical) */
 html[data-color="green"] {
   --md-primary: #386a20;
   --md-on-primary: #ffffff;
@@ -105,7 +161,35 @@ html[data-theme="dark"][data-color="green"] {
   --md-on-primary-container: #b7f397;
 }
 
-/* 5. Orange (Sunset) */
+/* 9. Lime (Citrus) */
+html[data-color="lime"] {
+  --md-primary: #65a30d;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #ecfccb;
+  --md-on-primary-container: #1a2e05;
+}
+html[data-theme="dark"][data-color="lime"] {
+  --md-primary: #bef264;
+  --md-on-primary: #1a2e05;
+  --md-primary-container: #4d7c0f;
+  --md-on-primary-container: #ecfccb;
+}
+
+/* 10. Amber (Gold) */
+html[data-color="amber"] {
+  --md-primary: #d97706;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #fef3c7;
+  --md-on-primary-container: #451a03;
+}
+html[data-theme="dark"][data-color="amber"] {
+  --md-primary: #fcd34d;
+  --md-on-primary: #451a03;
+  --md-primary-container: #b45309;
+  --md-on-primary-container: #fef3c7;
+}
+
+/* 11. Orange (Sunset) */
 html[data-color="orange"] {
   --md-primary: #8b5000;
   --md-on-primary: #ffffff;
@@ -119,7 +203,35 @@ html[data-theme="dark"][data-color="orange"] {
   --md-on-primary-container: #ffdcbe;
 }
 
-/* 6. Rose (Berry) */
+/* 12. Deep Orange (Coral) */
+html[data-color="deeporange"] {
+  --md-primary: #c2410c;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #ffedd5;
+  --md-on-primary-container: #431407;
+}
+html[data-theme="dark"][data-color="deeporange"] {
+  --md-primary: #fdba74;
+  --md-on-primary: #431407;
+  --md-primary-container: #9a3412;
+  --md-on-primary-container: #ffedd5;
+}
+
+/* 13. Red (Crimson) */
+html[data-color="red"] {
+  --md-primary: #b91c1c;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #fee2e2;
+  --md-on-primary-container: #450a0a;
+}
+html[data-theme="dark"][data-color="red"] {
+  --md-primary: #fca5a5;
+  --md-on-primary: #450a0a;
+  --md-primary-container: #991b1b;
+  --md-on-primary-container: #fee2e2;
+}
+
+/* 14. Rose (Berry) */
 html[data-color="rose"] {
   --md-primary: #984061;
   --md-on-primary: #ffffff;
@@ -131,6 +243,34 @@ html[data-theme="dark"][data-color="rose"] {
   --md-on-primary: #5e1133;
   --md-primary-container: #7b2949;
   --md-on-primary-container: #ffd9e2;
+}
+
+/* 15. Pink (Blossom) */
+html[data-color="pink"] {
+  --md-primary: #db2777;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #fce7f3;
+  --md-on-primary-container: #500724;
+}
+html[data-theme="dark"][data-color="pink"] {
+  --md-primary: #f472b6;
+  --md-on-primary: #500724;
+  --md-primary-container: #be185d;
+  --md-on-primary-container: #fce7f3;
+}
+
+/* 16. Slate (Charcoal) */
+html[data-color="slate"] {
+  --md-primary: #475569;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #f1f5f9;
+  --md-on-primary-container: #0f172a;
+}
+html[data-theme="dark"][data-color="slate"] {
+  --md-primary: #94a3b8;
+  --md-on-primary: #0f172a;
+  --md-primary-container: #334155;
+  --md-on-primary-container: #f1f5f9;
 }
 
 *,
@@ -327,6 +467,11 @@ body {
   }
 }
 
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
 .tab {
   flex: 0 0 auto;
   min-height: 40px;
@@ -341,6 +486,10 @@ body {
   user-select: none;
   touch-action: manipulation;
   transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+html[data-theme="light"] .tab:not([data-tab-color]):not(.active) {
+  background: #e9e3eb;
 }
 
 .tab[data-user-category="true"] {
