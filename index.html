@@ -390,6 +390,25 @@
           </div>
         </div>
 
+        <div class="settings-group" id="settings-task-color-group">
+          <label class="settings-label">Task Card Background Colour</label>
+          <p class="settings-hint">Colour-code task backgrounds dynamically based on deadline urgency, importance rating, or both.</p>
+          <div class="segmented-control" id="task-color-segmented">
+            <button type="button" class="segmented-btn" data-task-color-val="none">
+              <span>None</span>
+            </button>
+            <button type="button" class="segmented-btn" data-task-color-val="deadline">
+              <span>Deadline</span>
+            </button>
+            <button type="button" class="segmented-btn" data-task-color-val="importance">
+              <span>Importance</span>
+            </button>
+            <button type="button" class="segmented-btn" data-task-color-val="both">
+              <span>Both</span>
+            </button>
+          </div>
+        </div>
+
         <div class="settings-group" id="settings-pwa-group">
           <label class="settings-label">PWA Installation</label>
           <button type="button" id="btn-settings-install" class="settings-item-btn">

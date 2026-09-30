@@ -181,6 +181,7 @@ const MOVE_CANCEL_PX = 10;
       tabDragHoldMs: 400,
       tabOptionsHoldMs: 1000,
       appName: "Lists",
+      taskColorMode: "both",
       focusMinutesTotal: 0,
       focusLog: {},
     },
@@ -605,6 +606,53 @@ const MOVE_CANCEL_PX = 10;
     els.list.innerHTML = tasks.map((task) => taskCard(task, manual, isCompact)).join("");
   }
 
+  function getTaskCardColorAttr(task) {
+    if (task.isSubheading || task.completed) return "";
+    const mode = state.settings.taskColorMode || "both";
+    if (mode === "none") return "";
+
+    const today = todayISO();
+    const tomorrow = addDaysISO(1);
+    const nextWeek = addDaysISO(7);
+
+    const isOverdue = task.dueDate && task.dueDate < today;
+    const isToday = task.dueDate && task.dueDate === today;
+    const isTomorrow = task.dueDate && task.dueDate === tomorrow;
+    const isSoon = task.dueDate && task.dueDate > tomorrow && task.dueDate <= nextWeek;
+
+    if (mode === "deadline") {
+      if (isOverdue) return ' data-card-color="deadline-overdue"';
+      if (isToday) return ' data-card-color="deadline-today"';
+      if (isTomorrow) return ' data-card-color="deadline-tomorrow"';
+      if (isSoon) return ' data-card-color="deadline-soon"';
+      return "";
+    }
+
+    if (mode === "importance") {
+      const imp = Number(task.importance) || 3;
+      if (imp >= 5) return ' data-card-color="importance-5"';
+      if (imp === 4) return ' data-card-color="importance-4"';
+      if (imp === 3) return ' data-card-color="importance-3"';
+      if (imp === 2) return ' data-card-color="importance-2"';
+      return "";
+    }
+
+    if (mode === "both") {
+      if (isOverdue) return ' data-card-color="deadline-overdue"';
+      if (isToday) return ' data-card-color="deadline-today"';
+      const imp = Number(task.importance) || 3;
+      if (imp >= 5) return ' data-card-color="importance-5"';
+      if (imp === 4) return ' data-card-color="importance-4"';
+      if (isTomorrow) return ' data-card-color="deadline-tomorrow"';
+      if (imp === 3) return ' data-card-color="importance-3"';
+      if (isSoon) return ' data-card-color="deadline-soon"';
+      if (imp === 2) return ' data-card-color="importance-2"';
+      return "";
+    }
+
+    return "";
+  }
+
   function taskCard(task, manual, isCompact = false) {
     if (task.isSubheading) {
       return `
@@ -717,7 +765,7 @@ const MOVE_CANCEL_PX = 10;
           </span>
         </div>
         <!-- Foreground Card -->
-        <article class="task-card${doneClass}${compactClass}${hasControlsClass}" data-id="${task.id}">
+        <article class="task-card${doneClass}${compactClass}${hasControlsClass}" data-id="${task.id}"${getTaskCardColorAttr(task)}>
           <button type="button" class="drag-handle" aria-label="Reorder" ${manual ? "" : "disabled"}>
             <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
           </button>
@@ -762,13 +810,18 @@ const MOVE_CANCEL_PX = 10;
 
   function syncSettingsSheet() {
     const activeTheme = state.settings.theme || "system";
-    document.querySelectorAll(".segmented-btn").forEach((btn) => {
+    document.querySelectorAll(".segmented-btn[data-theme-val]").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.themeVal === activeTheme);
     });
 
     const activeColor = state.settings.colorTheme || "purple";
     document.querySelectorAll(".color-swatch-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.color === activeColor);
+    });
+
+    const activeTaskColorMode = state.settings.taskColorMode || "both";
+    document.querySelectorAll(".segmented-btn[data-task-color-val]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.taskColorVal === activeTaskColorMode);
     });
 
     if (els.settingsTrackerBadge) {
@@ -2292,78 +2345,87 @@ const MOVE_CANCEL_PX = 10;
     // 1. Tasks
     { section: "Tasks", name: "Add task button (+) with task list", status: "done", desc: "FAB button opens task creation dialog, persists to IndexedDB, renders responsive cards in the list." },
     { section: "Tasks", name: "Long-press on task", status: "done", desc: "Long-press (520ms hold) opens bottom action sheet on touch and pointer devices." },
-    { section: "Tasks", name: "Edit task", status: "done", desc: "Edit action opens prefilled dialog to update task name, importance, time, due date, category." },
+    { section: "Tasks", name: "Edit task", status: "done", desc: "Edit action opens prefilled dialog to update task name, importance, time, due date, category, reminders, and subtasks." },
     { section: "Tasks", name: "Delete task", status: "done", desc: "Confirmation modal safeguards against accidental deletion; removes task from IndexedDB." },
-    { section: "Tasks", name: "Mark task as complete", status: "done", desc: "Checkbox toggle marks task complete with visual strike-through styling." },
+    { section: "Tasks", name: "Mark task as complete", status: "done", desc: "Checkbox toggle marks task complete with visual strike-through styling and completion sound." },
+    { section: "Tasks", name: "Swipe actions on tasks", status: "done", desc: "Interactive swipe-right to complete (green tick cue) and swipe-left to delete (red trash cue)." },
+    { section: "Tasks", name: "Subtasks / Checklist", status: "done", desc: "Interactive checklist items with inline step creation, progress percentage bar, and expand/collapse." },
+    { section: "Tasks", name: "Recurring tasks", status: "done", desc: "Repeat daily, weekdays, weekly, biweekly, or monthly with automatic next-occurrence scheduling upon completion." },
     { section: "Tasks", name: "Move task (Moves to different tab)", status: "done", desc: "Click and hold on task opens action sheet with 'Move task' to move immediately to another existing tab." },
-    { section: "Tasks", name: "Archive completed tasks", status: "partial", desc: "Archive tab automatically shows completed tasks; manual batch 'Archive all' action is pending." },
     { section: "Tasks", name: "Make task a subheading / bold text", status: "done", desc: "Subheading support: bold section title with no checkbox or priority metadata chips; reorderable for itineraries." },
     { section: "Tasks", name: "Set Reminder (Notification)", status: "done", desc: "Notification API integration with timed alarms, alert chimes, in-app toast, and quick presets." },
+    { section: "Tasks", name: "Dynamic Task Background Colours", status: "done", desc: "Dynamic color-coding for task cards based on deadline urgency (overdue, today, tomorrow, upcoming) or importance rating (1-5)." },
+    { section: "Tasks", name: "Archive completed tasks", status: "done", desc: "Dedicated Archive tab with completed items, undo completion restore, permanent deletion, and empty state." },
 
     // 2. Task Fields
     { section: "Task Fields", name: "Task name", status: "done", desc: "Text input with 120 character limit and required validation." },
     { section: "Task Fields", name: "Importance rating (1-5)", status: "done", desc: "Slider with live numeric value feedback and high-importance badges." },
-    { section: "Task Fields", name: "Estimated time/effort", status: "partial", desc: "Currently configured in hours; spec specifies minutes (in minutes)." },
-    { section: "Task Fields", name: "Due date", status: "done", desc: "Date picker with overdue highlight indicator chip." },
+    { section: "Task Fields", name: "Due date", status: "done", desc: "Date picker with overdue highlight indicator chip and smart date formatting." },
     { section: "Task Fields", name: "Tab category", status: "done", desc: "Category dropdown linked to user-defined tabs or Uncategorized." },
-    { section: "Task Fields", name: "Created date (automatic)", status: "todo", desc: "Automatic ISO timestamp recorded upon task creation." },
-    { section: "Task Fields", name: "Completed date (automatic)", status: "todo", desc: "Automatic ISO timestamp recorded when marked complete." },
+    { section: "Task Fields", name: "Created date (automatic)", status: "done", desc: "Automatic ISO timestamp recorded upon task creation." },
+    { section: "Task Fields", name: "Completed date (automatic)", status: "done", desc: "Automatic ISO timestamp recorded when marked complete." },
+    { section: "Task Fields", name: "Estimated time/effort", status: "partial", desc: "Currently configured in hours; spec specifies minutes (in minutes)." },
 
     // 3. Tabs
-    { section: "Tabs", name: "User Defined (+ button)", status: "partial", desc: "User tabs can be added with '+'; app currently seeds 2 tabs instead of 1." },
+    { section: "Tabs", name: "User Defined (+ button)", status: "done", desc: "User tabs can be added dynamically with the '+' tab button and customized." },
     { section: "Tabs", name: "Tabs can be names or Emojis", status: "done", desc: "Full UTF-8 emoji and text string support for tab titles." },
-    { section: "Tabs", name: "Long-press on tabs", status: "done", desc: "Long-pressing any tab triggers Tab Options sheet for compact list toggle, rename, and delete." },
+    { section: "Tabs", name: "Long-press on tabs", status: "done", desc: "Long-pressing any tab triggers Tab Options sheet for compact list toggle, hide-from-tasks, rename, and delete." },
     { section: "Tabs", name: "Drag and drop tab positions left/right", status: "done", desc: "Drag and drop the horizontal position of each category tab left and right with persistence." },
     { section: "Tabs", name: "Desktop tab scroll buttons (< & >)", status: "done", desc: "Scroll arrow buttons on computer screens when there are more tabs than fit." },
     { section: "Tabs", name: "Compact list per tab", status: "done", desc: "Long press any tab to toggle compact mode, hiding importance, time, and tab name chips." },
+    { section: "Tabs", name: "Hide tab from All tasks", status: "done", desc: "Tab option to hide a tab's tasks and subheadings from the unified All tab while preserving them in the category tab." },
     { section: "Tabs", name: "Rename tab", status: "done", desc: "Category dialog renames tab and updates associations in real time." },
-    { section: "Tabs", name: "Change tab background colour", status: "done", desc: "11-color palette inside Tab Options sheet with active/inactive adaptive tints." },
+    { section: "Tabs", name: "Change tab background colour", status: "done", desc: "12-color palette inside Tab Options sheet with active/inactive tints including ice blue (#e7f5fe) and contrast slate (#cfcfd4)." },
     { section: "Tabs", name: "Customizable Tab Hold Timers", status: "done", desc: "Configure Timer 1 (drag activation) and Timer 2 (tab options) within the Settings pane." },
     { section: "Tabs", name: "Mobile Tab Drag Scroll Lock", status: "done", desc: "Locks horizontal tab bar scrolling while dragging a tab on mobile touchscreens." },
     { section: "Tabs", name: "Tab Examples", status: "todo", desc: "Quick-add presets for Home, Work, Shopping List, Packing List, Holiday Itinerary, etc." },
 
-    // 4. Ordering
-    { section: "Ordering", name: "Manual Ordering", status: "done", desc: "Preserves custom order using numeric sort positions." },
-    { section: "Ordering", name: "Drag and drop tasks", status: "done", desc: "Smooth touch/pointer drag reordering with handle." },
-    { section: "Ordering", name: "Save custom order", status: "done", desc: "Persists reordered positions to IndexedDB immediately." },
-    { section: "Ordering", name: "Order persists after app restart", status: "done", desc: "Reloads exact saved manual ordering from local storage." },
-    { section: "Ordering", name: "Automatic Sorting", status: "done", desc: "Sort by importance, estimated time, and quick wins." },
-    { section: "Ordering", name: "Sort by Importance", status: "done", desc: "High-to-low priority sort option in filter sheet." },
-    { section: "Ordering", name: "Sort by Time", status: "done", desc: "Ascending time/effort sort option in filter sheet." },
-    { section: "Ordering", name: "Sort by Priority Score", status: "todo", desc: "Formula: (Importance × Urgency) ÷ Effort calculation." },
+    // 4. Focus & Productivity
+    { section: "Focus & Productivity", name: "Focus Timer (Pomodoro)", status: "done", desc: "Interactive Pomodoro timer with 25m Focus, 5m Short Break, and 15m Long Break intervals with audio alerts and background logging." },
+    { section: "Focus & Productivity", name: "Productivity Insights & Statistics", status: "done", desc: "Productivity dashboard tracking completed today/this week, active streak, focus minutes, and category task distribution." },
 
-    // 5. Filters button
-    { section: "Filters Button", name: "Manual Order", status: "done", desc: "Restores manual drag-and-drop order." },
-    { section: "Filters Button", name: "Sort by Importance", status: "done", desc: "Available in Sort & Filters sheet." },
-    { section: "Filters Button", name: "Sort by Time", status: "done", desc: "Available in Sort & Filters sheet." },
-    { section: "Filters Button", name: "Sort by Priority Score", status: "todo", desc: "Missing from filter sheet choices." },
-    { section: "Filters Button", name: "Quick Wins", status: "done", desc: "Filters high importance (4-5) and short duration (<= 2h)." },
-    { section: "Filters Button", name: "Due Today", status: "done", desc: "Dedicated filter for tasks due on today's date." },
-    { section: "Filters Button", name: "Due Tomorrow", status: "done", desc: "Dedicated filter for tasks due on tomorrow's date." },
-    { section: "Filters Button", name: "Due Next 7 Days", status: "done", desc: "Filters tasks due in the upcoming week." },
+    // 5. Ordering & Filters
+    { section: "Ordering & Filters", name: "Manual Ordering", status: "done", desc: "Preserves custom order using numeric sort positions." },
+    { section: "Ordering & Filters", name: "Drag and drop tasks", status: "done", desc: "Smooth touch/pointer drag reordering with dedicated grab handle." },
+    { section: "Ordering & Filters", name: "Save custom order", status: "done", desc: "Persists reordered positions to IndexedDB immediately." },
+    { section: "Ordering & Filters", name: "Order persists after app restart", status: "done", desc: "Reloads exact saved manual ordering from local storage." },
+    { section: "Ordering & Filters", name: "Automatic Sorting", status: "done", desc: "Sort by importance, estimated time, and quick wins." },
+    { section: "Ordering & Filters", name: "Sort by Importance", status: "done", desc: "High-to-low priority sort option in filter sheet." },
+    { section: "Ordering & Filters", name: "Sort by Time", status: "done", desc: "Ascending time/effort sort option in filter sheet." },
+    { section: "Ordering & Filters", name: "Quick Wins filter", status: "done", desc: "Filters high importance (4-5) and short duration (<= 2h)." },
+    { section: "Ordering & Filters", name: "Due Today filter", status: "done", desc: "Dedicated filter for tasks due on today's date." },
+    { section: "Ordering & Filters", name: "Due Tomorrow filter", status: "done", desc: "Dedicated filter for tasks due on tomorrow's date." },
+    { section: "Ordering & Filters", name: "Due Next 7 Days filter", status: "done", desc: "Filters tasks due in the upcoming week." },
+    { section: "Ordering & Filters", name: "Sort by Priority Score", status: "todo", desc: "Formula: (Importance × Urgency) ÷ Effort calculation." },
 
-    // 6. Settings button
-    { section: "Settings Button", name: "Settings Area / Modal", status: "done", desc: "Settings pane with dark mode switch, 6 colour themes, JSON backup & restore, version info." },
+    // 6. Settings & Customization
+    { section: "Settings & Customization", name: "Settings Area / Modal", status: "done", desc: "Comprehensive settings pane with theme, color palette, task card styling, and backup tools." },
+    { section: "Settings & Customization", name: "16 Material Colour Themes", status: "done", desc: "Full palette of 16 theme colors arranged in 2 rows of 8 with adaptive system/dark accents." },
+    { section: "Settings & Customization", name: "Dark Mode in Settings", status: "done", desc: "Segmented switch supporting System preference, Light, and Dark modes." },
+    { section: "Settings & Customization", name: "Task Card Background Colour Mode", status: "done", desc: "Configure dynamic task card background colors by None, Deadline, Importance, or Both." },
+    { section: "Settings & Customization", name: "Custom Program Name", status: "done", desc: "Option to rename application title in header and browser tab." },
 
-    // 7. Data Storage
-    { section: "Data Storage", name: "Local Storage / IndexedDB", status: "done", desc: "IndexedDB database 'priority-planner' with 3 stores." },
-    { section: "Data Storage", name: "No backend required", status: "done", desc: "100% client-side offline execution." },
-    { section: "Data Storage", name: "No account required for offline use", status: "done", desc: "Zero authentication friction; works immediately offline." },
-    { section: "Data Storage", name: "Google Drive Cloud Backup & Restore", status: "done", desc: "Client-side Google OAuth integration allowing users to connect their personal Google account to backup and restore tasks across devices." },
-    { section: "Data Storage", name: "Data stored entirely on device", status: "done", desc: "Confirmed local-first storage with optional private cloud backup." },
-
-    // 8. User Interface
+    // 7. User Interface & Touch Experience
     { section: "User Interface", name: "Mobile First Design", status: "done", desc: "Single-hand friendly layout with bottom sheets and thumb zones." },
     { section: "User Interface", name: "Android Friendly", status: "done", desc: "MD3 design tokens, ripple-friendly targets, viewport-fit." },
     { section: "User Interface", name: "Responsive Layout", status: "done", desc: "Clean centered layout supporting mobile, tablet, and desktop." },
     { section: "User Interface", name: "Large Touch Targets", status: "done", desc: "Minimum 44px-48px touch targets for touch accuracy." },
     { section: "User Interface", name: "Modern Material Design styling", status: "done", desc: "Rounded cards, MD3 color system, FAB, elevation." },
-    { section: "User Interface", name: "Dark Mode in Settings", status: "done", desc: "Dark mode switch placed cleanly in Settings pane with System, Light, and Dark options." },
     { section: "User Interface", name: "Bulk Paste Multiple Tasks", status: "done", desc: "Batch paste multiline items directly into any list tab with clipboard integration and item counter." },
+    { section: "User Interface", name: "Chrome-style Close Icons & Sheet Minimize Handle", status: "done", desc: "Consistent 'X' close buttons and top draggable handle for swipe-down-to-close on all modal sheets." },
+    { section: "User Interface", name: "Mobile Keyboard & Touch Scrolling Optimization", status: "done", desc: "Smooth touch scrolling in Edit Task dialog with background scroll lock to prevent page bounce." },
 
-    // 9. Notifications
+    // 8. Notifications
     { section: "Notifications", name: "Due date reminders", status: "done", desc: "System notifications and in-app alerts when tasks reach their reminder time." },
     { section: "Notifications", name: "Date and time set reminders", status: "done", desc: "Custom scheduled alarms for specific task dates and times with quick presets." },
+
+    // 9. Data Storage & Sync
+    { section: "Data Storage", name: "Local Storage / IndexedDB", status: "done", desc: "IndexedDB database 'priority-planner' with 3 stores." },
+    { section: "Data Storage", name: "No backend required", status: "done", desc: "100% client-side offline execution." },
+    { section: "Data Storage", name: "No account required for offline use", status: "done", desc: "Zero authentication friction; works immediately offline." },
+    { section: "Data Storage", name: "JSON Data Backup & Restore", status: "done", desc: "One-click export and import of all tasks, categories, and settings in JSON format." },
+    { section: "Data Storage", name: "Google Drive Cloud Backup & Restore", status: "done", desc: "Client-side Google OAuth integration allowing users to connect their personal Google account to backup and restore tasks across devices." },
+    { section: "Data Storage", name: "Data stored entirely on device", status: "done", desc: "Confirmed local-first storage with optional private cloud backup." },
 
     // 10. Progressive Web App
     { section: "PWA", name: "Installation", status: "done", desc: "PWA installable banner and offline service worker." },
@@ -2381,7 +2443,7 @@ const MOVE_CANCEL_PX = 10;
     const percent = Math.round((doneCount / total) * 100);
 
     if (els.trackerSummaryText) {
-      els.trackerSummaryText.textContent = `${doneCount} of ${total} features complete (${partialCount} in progress)`;
+      els.trackerSummaryText.textContent = `${doneCount} of ${total} features complete (${partialCount + todoCount} remaining)`;
     }
     if (els.trackerSummaryPercent) {
       els.trackerSummaryPercent.textContent = `${percent}%`;
@@ -2418,6 +2480,10 @@ const MOVE_CANCEL_PX = 10;
 
     let html = "";
     for (const [sec, items] of Object.entries(sections)) {
+      items.sort((a, b) => {
+        const order = { done: 0, partial: 1, todo: 2 };
+        return order[a.status] - order[b.status];
+      });
       html += `<div class="tracker-section-title">${escapeHtml(sec)} (${items.length})</div>`;
       for (const item of items) {
         html += `
@@ -2524,12 +2590,21 @@ const MOVE_CANCEL_PX = 10;
       });
     }
 
-    document.querySelectorAll(".segmented-btn").forEach((btn) => {
+    document.querySelectorAll(".segmented-btn[data-theme-val]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         state.settings.theme = btn.dataset.themeVal;
         await saveSettings();
         applyTheme();
         syncSettingsSheet();
+      });
+    });
+
+    document.querySelectorAll(".segmented-btn[data-task-color-val]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        state.settings.taskColorMode = btn.dataset.taskColorVal;
+        await saveSettings();
+        syncSettingsSheet();
+        renderTasks();
       });
     });
 
@@ -2840,12 +2915,14 @@ const MOVE_CANCEL_PX = 10;
         await put("tasks", {
           ...existing,
           ...payload,
+          createdAt: existing?.createdAt || new Date().toISOString(),
           reminderFired: reminderChanged ? false : Boolean(existing?.reminderFired),
         });
       } else {
         await put("tasks", {
           id: uid(),
           ...payload,
+          createdAt: new Date().toISOString(),
           reminderFired: false,
           completed: false,
           sortPosition: await nextSortPosition(),
