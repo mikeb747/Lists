@@ -489,9 +489,46 @@ body.modal-open {
 }
 
 html:not([data-theme="dark"]) .tab:not([data-tab-color]):not(.active),
-html[data-theme="light"] .tab:not([data-tab-color]):not(.active),
-.tab:not([data-tab-color]):not(.active) {
+html[data-theme="light"] .tab:not([data-tab-color]):not(.active) {
   background: #e9e3eb;
+  color: var(--md-on-surface-variant);
+}
+
+html[data-theme="dark"] .tab:not([data-tab-color]):not(.active):not([data-tab="all"]):not([data-tab="archive"]) {
+  background: #2b2930 !important;
+  color: #cac4d0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* All and Archive Tabs - Transparent with contrasting outlines */
+.tab[data-tab="all"],
+.tab[data-tab="archive"] {
+  background: transparent !important;
+}
+
+html:not([data-theme="dark"]) .tab[data-tab="all"]:not(.active),
+html:not([data-theme="dark"]) .tab[data-tab="archive"]:not(.active),
+html[data-theme="light"] .tab[data-tab="all"]:not(.active),
+html[data-theme="light"] .tab[data-tab="archive"]:not(.active) {
+  background: transparent !important;
+  border: 1.5px solid #1c1b1f !important;
+  color: #1c1b1f !important;
+}
+
+html[data-theme="dark"] .tab[data-tab="all"]:not(.active),
+html[data-theme="dark"] .tab[data-tab="archive"]:not(.active) {
+  background: transparent !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.7) !important;
+  color: #f3edf7 !important;
+}
+
+.tab[data-tab="all"].active,
+.tab[data-tab="archive"].active {
+  background: transparent !important;
+  border: 2px solid var(--md-primary) !important;
+  color: var(--md-primary) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 0 1px var(--md-primary);
 }
 
 .tab[data-user-category="true"] {
@@ -2871,6 +2908,41 @@ html[data-theme="dark"] .drive-status-message.error {
   color: var(--md-error);
 }
 
+.subtask-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-subtask-move {
+  background: none;
+  border: none;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  border-radius: 4px;
+  opacity: 0.75;
+  transition: opacity 0.15s, color 0.15s, background-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  min-height: 22px;
+  user-select: none;
+}
+
+.btn-subtask-move:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--md-primary);
+  background: var(--md-surface-container-highest);
+}
+
+.btn-subtask-move:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
 /* Subtasks on Task Card */
 .task-subtasks-summary {
   margin-top: 8px;
@@ -2969,6 +3041,72 @@ html[data-theme="dark"] .drive-status-message.error {
 }
 
 .subtask-check-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Compact mode subtask styling */
+.task-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compact-subtask-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface-variant);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.4;
+  vertical-align: middle;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.compact-subtask-toggle-btn:hover {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border-color: var(--md-primary);
+}
+
+.compact-subtask-badge {
+  font-size: 0.7rem;
+}
+
+.compact-subtask-arrow {
+  font-size: 0.65rem;
+}
+
+.compact-subtasks {
+  margin-top: 6px !important;
+  padding: 4px 8px !important;
+  gap: 3px !important;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+}
+
+html[data-theme="dark"] .compact-subtasks {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.compact-subtasks .task-subtask-item {
+  padding: 2px 0;
+  font-size: 0.8rem;
+}
+
+.compact-subtasks .subtask-check-btn {
+  width: 17px;
+  height: 17px;
+}
+
+.compact-subtasks .subtask-check-btn svg {
   width: 12px;
   height: 12px;
 }

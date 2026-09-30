@@ -83,6 +83,7 @@ const MOVE_CANCEL_PX = 10;
     requestNotifBtn: document.getElementById("btn-request-notif"),
     testNotifBtn: document.getElementById("btn-test-notif"),
     actionTaskReminder: document.getElementById("action-task-reminder"),
+    actionConvertSubtasks: document.getElementById("action-convert-subtasks"),
     actionCompactBtn: document.getElementById("action-toggle-compact"),
     labelCompact: document.getElementById("label-toggle-compact"),
     badgeCompact: document.getElementById("badge-toggle-compact"),
@@ -681,15 +682,16 @@ const MOVE_CANCEL_PX = 10;
       ? `<span class="chip task-chip-recurrence" title="Repeats ${formatRecurrence(task.recurrence)}">🔁 ${formatRecurrence(task.recurrence)}</span>`
       : "";
 
-    let subtasksHtml = "";
-    if (task.subtasks && task.subtasks.length > 0 && !isCompact) {
-      const total = task.subtasks.length;
-      const done = task.subtasks.filter((s) => s.completed).length;
-      const pct = Math.round((done / total) * 100);
-      const isExpanded = Boolean(state.expandedSubtasks?.[task.id]);
-      const allDone = done === total;
+    const hasSubtasks = Boolean(task.subtasks && task.subtasks.length > 0);
+    const totalSubtasks = hasSubtasks ? task.subtasks.length : 0;
+    const doneSubtasks = hasSubtasks ? task.subtasks.filter((s) => s.completed).length : 0;
+    const pctSubtasks = totalSubtasks ? Math.round((doneSubtasks / totalSubtasks) * 100) : 0;
+    const isSubtasksExpanded = Boolean(state.expandedSubtasks?.[task.id]);
+    const allSubtasksDone = doneSubtasks === totalSubtasks;
 
-      const itemsHtml = task.subtasks
+    let subtaskItemsHtml = "";
+    if (hasSubtasks) {
+      subtaskItemsHtml = task.subtasks
         .map(
           (s) => `
         <div class="task-subtask-item${s.completed ? " completed" : ""}">
@@ -700,16 +702,19 @@ const MOVE_CANCEL_PX = 10;
         </div>`
         )
         .join("");
+    }
 
-      subtasksHtml = `
+    let subtasksStandardHtml = "";
+    if (hasSubtasks && !isCompact) {
+      subtasksStandardHtml = `
         <div class="task-subtasks-summary">
           <button type="button" class="subtask-progress-btn" data-toggle-subtask-list="${task.id}" title="Toggle checklist">
-            <span class="subtask-progress-bar"><span class="subtask-progress-fill${allDone ? " all-done" : ""}" style="width: ${pct}%"></span></span>
-            <span class="subtask-progress-text">${done}/${total} steps (${pct}%)</span>
-            <span class="subtask-toggle-arrow">${isExpanded ? "▲" : "▼"}</span>
+            <span class="subtask-progress-bar"><span class="subtask-progress-fill${allSubtasksDone ? " all-done" : ""}" style="width: ${pctSubtasks}%"></span></span>
+            <span class="subtask-progress-text">${doneSubtasks}/${totalSubtasks} steps (${pctSubtasks}%)</span>
+            <span class="subtask-toggle-arrow">${isSubtasksExpanded ? "▲" : "▼"}</span>
           </button>
-          <div class="task-subtasks-list" ${isExpanded ? "" : "hidden"}>
-            ${itemsHtml}
+          <div class="task-subtasks-list" ${isSubtasksExpanded ? "" : "hidden"}>
+            ${subtaskItemsHtml}
           </div>
         </div>
       `;
@@ -770,7 +775,15 @@ const MOVE_CANCEL_PX = 10;
             <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2z"/></svg>
           </button>
           <div class="task-body">
-            <p class="task-name">${escapeHtml(task.name)}</p>
+            <div class="task-name-row">
+              <p class="task-name">${escapeHtml(task.name)}</p>
+              ${isCompact && hasSubtasks ? `
+                <button type="button" class="compact-subtask-toggle-btn" data-toggle-subtask-list="${task.id}" aria-label="${isSubtasksExpanded ? "Hide subtasks" : "Show subtasks"}" title="${isSubtasksExpanded ? "Hide steps" : "Show steps"}">
+                  <span class="compact-subtask-badge">${doneSubtasks}/${totalSubtasks}</span>
+                  <span class="compact-subtask-arrow">${isSubtasksExpanded ? "▲" : "▼"}</span>
+                </button>
+              ` : ""}
+            </div>
             ${!isCompact ? `
             <div class="task-meta">
               <span class="chip task-chip-importance${task.importance >= 4 ? " importance-high" : ""}">Importance ${task.importance}</span>
@@ -780,7 +793,10 @@ const MOVE_CANCEL_PX = 10;
               ${recurrenceBadge}
               <span class="chip task-chip-category">${escapeHtml(categoryName(task.categoryId))}</span>
             </div>
-            ${subtasksHtml}` : ""}
+            ${subtasksStandardHtml}` : (hasSubtasks && isSubtasksExpanded ? `
+            <div class="task-subtasks-list compact-subtasks" data-task-subtasks="${task.id}">
+              ${subtaskItemsHtml}
+            </div>` : "")}
           </div>
           ${rightControls}
         </article>
@@ -1637,7 +1653,11 @@ const MOVE_CANCEL_PX = 10;
         (sub, idx) => `
       <div class="subtask-editor-item">
         <span>${escapeHtml(sub.title)}</span>
-        <button type="button" class="btn-subtask-del" data-subtask-del-idx="${idx}" aria-label="Delete step">✕</button>
+        <div class="subtask-editor-actions">
+          <button type="button" class="btn-subtask-move" data-subtask-up-idx="${idx}" aria-label="Move step up" title="Move up"${idx === 0 ? " disabled" : ""}>▲</button>
+          <button type="button" class="btn-subtask-move" data-subtask-down-idx="${idx}" aria-label="Move step down" title="Move down"${idx === currentEditingSubtasks.length - 1 ? " disabled" : ""}>▼</button>
+          <button type="button" class="btn-subtask-del" data-subtask-del-idx="${idx}" aria-label="Delete step" title="Delete">✕</button>
+        </div>
       </div>`
       )
       .join("");
@@ -2350,6 +2370,9 @@ const MOVE_CANCEL_PX = 10;
     { section: "Tasks", name: "Mark task as complete", status: "done", desc: "Checkbox toggle marks task complete with visual strike-through styling and completion sound." },
     { section: "Tasks", name: "Swipe actions on tasks", status: "done", desc: "Interactive swipe-right to complete (green tick cue) and swipe-left to delete (red trash cue)." },
     { section: "Tasks", name: "Subtasks / Checklist", status: "done", desc: "Interactive checklist items with inline step creation, progress percentage bar, and expand/collapse." },
+    { section: "Tasks", name: "Subtasks in compact view", status: "done", desc: "Compact toggle button next to task name displays checklist items with tight compact styling." },
+    { section: "Tasks", name: "Subtask checklist reorder (▲/▼)", status: "done", desc: "Up and down buttons next to delete button in task editor allow quick checklist item reordering." },
+    { section: "Tasks", name: "Turn subtasks into new tasks", status: "done", desc: "Long-press action sheet option converts checklist items into standalone tasks in the same tab." },
     { section: "Tasks", name: "Recurring tasks", status: "done", desc: "Repeat daily, weekdays, weekly, biweekly, or monthly with automatic next-occurrence scheduling upon completion." },
     { section: "Tasks", name: "Move task (Moves to different tab)", status: "done", desc: "Click and hold on task opens action sheet with 'Move task' to move immediately to another existing tab." },
     { section: "Tasks", name: "Make task a subheading / bold text", status: "done", desc: "Subheading support: bold section title with no checkbox or priority metadata chips; reorderable for itineraries." },
@@ -2369,6 +2392,8 @@ const MOVE_CANCEL_PX = 10;
     // 3. Tabs
     { section: "Tabs", name: "User Defined (+ button)", status: "done", desc: "User tabs can be added dynamically with the '+' tab button and customized." },
     { section: "Tabs", name: "Tabs can be names or Emojis", status: "done", desc: "Full UTF-8 emoji and text string support for tab titles." },
+    { section: "Tabs", name: "Transparent All & Archive tabs with high-contrast outlines", status: "done", desc: "Transparent background with light outline in dark mode and dark outline in light mode for system tabs." },
+    { section: "Tabs", name: "Balanced Dark Mode default tab background", status: "done", desc: "Dark mode default tab background (#2b2930) eliminates excessive brightness." },
     { section: "Tabs", name: "Long-press on tabs", status: "done", desc: "Long-pressing any tab triggers Tab Options sheet for compact list toggle, hide-from-tasks, rename, and delete." },
     { section: "Tabs", name: "Drag and drop tab positions left/right", status: "done", desc: "Drag and drop the horizontal position of each category tab left and right with persistence." },
     { section: "Tabs", name: "Desktop tab scroll buttons (< & >)", status: "done", desc: "Scroll arrow buttons on computer screens when there are more tabs than fit." },
@@ -2701,6 +2726,13 @@ const MOVE_CANCEL_PX = 10;
       if (toggleSubBtn) {
         toggleSubBtn.textContent = isSub ? "Convert to regular task" : "Convert to subheading";
       }
+      const hasSubtasks = Boolean(task?.subtasks && task.subtasks.length > 0);
+      if (els.actionConvertSubtasks) {
+        els.actionConvertSubtasks.hidden = isSub || !hasSubtasks;
+        if (hasSubtasks) {
+          els.actionConvertSubtasks.textContent = `Turn subtasks into new tasks (${task.subtasks.length})`;
+        }
+      }
       if (els.actionTaskReminder) {
         els.actionTaskReminder.hidden = isSub;
       }
@@ -2876,6 +2908,30 @@ const MOVE_CANCEL_PX = 10;
     }
     if (els.subtasksEditorList) {
       els.subtasksEditorList.addEventListener("click", (e) => {
+        const upBtn = e.target.closest("[data-subtask-up-idx]");
+        if (upBtn) {
+          const idx = Number(upBtn.dataset.subtaskUpIdx);
+          if (idx > 0) {
+            const temp = currentEditingSubtasks[idx];
+            currentEditingSubtasks[idx] = currentEditingSubtasks[idx - 1];
+            currentEditingSubtasks[idx - 1] = temp;
+            renderSubtasksEditor();
+          }
+          return;
+        }
+
+        const downBtn = e.target.closest("[data-subtask-down-idx]");
+        if (downBtn) {
+          const idx = Number(downBtn.dataset.subtaskDownIdx);
+          if (idx < currentEditingSubtasks.length - 1) {
+            const temp = currentEditingSubtasks[idx];
+            currentEditingSubtasks[idx] = currentEditingSubtasks[idx + 1];
+            currentEditingSubtasks[idx + 1] = temp;
+            renderSubtasksEditor();
+          }
+          return;
+        }
+
         const delBtn = e.target.closest("[data-subtask-del-idx]");
         if (delBtn) {
           const idx = Number(delBtn.dataset.subtaskDelIdx);
@@ -3043,6 +3099,41 @@ const MOVE_CANCEL_PX = 10;
       } else if (action === "move") {
         closeOverlays();
         openMoveTaskSheet(task);
+      } else if (action === "convert-subtasks") {
+        closeOverlays();
+        if (!task.subtasks || !task.subtasks.length) return;
+        const subCount = task.subtasks.length;
+        confirmAction({
+          title: "Turn subtasks into new tasks?",
+          message: `Convert ${subCount} subtask${subCount === 1 ? "" : "s"} into standalone tasks in this tab?`,
+          okLabel: "Convert",
+          okClass: "success",
+          onConfirm: async () => {
+            let basePos = await nextSortPosition();
+            for (const sub of task.subtasks) {
+              await put("tasks", {
+                id: uid(),
+                name: sub.title,
+                importance: task.importance || 3,
+                estimatedTime: 1,
+                dueDate: task.dueDate || "",
+                categoryId: task.categoryId || "",
+                reminderAt: "",
+                isSubheading: false,
+                recurrence: "none",
+                subtasks: [],
+                completed: Boolean(sub.completed),
+                createdAt: new Date().toISOString(),
+                sortPosition: basePos++,
+              });
+            }
+            task.subtasks = [];
+            await put("tasks", task);
+            state.tasks = await getAll("tasks");
+            render();
+            showToast(`Created ${subCount} new task${subCount === 1 ? "" : "s"} from checklist`);
+          },
+        });
       } else if (action === "toggle-subheading") {
         closeOverlays();
         await put("tasks", { ...task, isSubheading: !task.isSubheading });
