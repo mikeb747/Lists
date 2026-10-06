@@ -110,6 +110,7 @@ const MOVE_CANCEL_PX = 10;
     driveUserName: document.getElementById("drive-user-name"),
     driveUserEmail: document.getElementById("drive-user-email"),
     driveSyncStatus: document.getElementById("drive-sync-status"),
+    linkOpenDriveFolder: document.getElementById("link-open-drive-folder"),
     bulkPasteBtn: document.getElementById("btn-bulk-paste"),
     bulkPasteSheet: document.getElementById("sheet-bulk-paste"),
     bulkCategorySelect: document.getElementById("bulk-category-select"),
@@ -1245,9 +1246,18 @@ const MOVE_CANCEL_PX = 10;
           els.driveUserPhoto.style.display = "none";
         }
       }
+      if (els.linkOpenDriveFolder) {
+        els.linkOpenDriveFolder.style.display = "inline-flex";
+        if (state.driveFolderLink) {
+          els.linkOpenDriveFolder.href = state.driveFolderLink;
+        }
+      }
     } else {
       els.driveDisconnectedUi.hidden = false;
       els.driveConnectedUi.hidden = true;
+      if (els.linkOpenDriveFolder) {
+        els.linkOpenDriveFolder.style.display = "none";
+      }
     }
   }
 
@@ -1319,7 +1329,7 @@ const MOVE_CANCEL_PX = 10;
 
     try {
       if (els.driveBackupBtn) els.driveBackupBtn.disabled = true;
-      setDriveStatus("Uploading backup to Google Drive...", "normal");
+      setDriveStatus("Uploading timestamped backup to 'Lists' folder on Google Drive...", "normal");
 
       const payload = {
         version: 1,
@@ -1331,9 +1341,15 @@ const MOVE_CANCEL_PX = 10;
         settings: state.settings,
       };
 
-      await backupToDrive(token, payload);
+      const result = await backupToDrive(token, payload);
       const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      setDriveStatus(`Saved to Google Drive at ${timeStr} (${payload.tasks.length} tasks) ✓`, "success");
+      const folderUrl = result.folder?.webViewLink || (result.folder?.id ? `https://drive.google.com/drive/folders/${result.folder.id}` : "https://drive.google.com");
+      state.driveFolderLink = folderUrl;
+      if (els.linkOpenDriveFolder) {
+        els.linkOpenDriveFolder.href = folderUrl;
+        els.linkOpenDriveFolder.style.display = "inline-flex";
+      }
+      setDriveStatus(`Saved to 'Lists' folder as ${result.fileName} at ${timeStr} (${payload.tasks.length} tasks) ✓`, "success");
     } catch (err) {
       console.error("Drive backup error:", err);
       setDriveStatus(`Backup failed: ${err.message}`, "error");
@@ -1360,20 +1376,27 @@ const MOVE_CANCEL_PX = 10;
 
     try {
       if (els.driveRestoreBtn) els.driveRestoreBtn.disabled = true;
-      setDriveStatus("Checking Google Drive for backup...", "normal");
+      setDriveStatus("Checking 'Lists' folder for latest backup...", "normal");
 
-      const { data, fileMeta } = await restoreFromDrive(token);
+      const { data, fileMeta, folder } = await restoreFromDrive(token);
       if (!data || !Array.isArray(data.tasks)) {
         throw new Error("Backup file found on Drive is invalid or corrupted.");
       }
 
       const taskCount = data.tasks.length;
       const modDate = fileMeta.modifiedTime ? new Date(fileMeta.modifiedTime).toLocaleString() : "Recent";
+      const fileName = fileMeta.name || "backup file";
+      const folderUrl = folder?.webViewLink || (folder?.id ? `https://drive.google.com/drive/folders/${folder.id}` : "https://drive.google.com");
+      state.driveFolderLink = folderUrl;
+      if (els.linkOpenDriveFolder) {
+        els.linkOpenDriveFolder.href = folderUrl;
+        els.linkOpenDriveFolder.style.display = "inline-flex";
+      }
 
       // Explicit user confirmation dialog as mandated by skill guidelines!
       confirmAction({
         title: "Restore from Google Drive?",
-        message: `Restore ${taskCount} tasks from ${state.googleUser?.email || "Google Drive"} (saved: ${modDate})? Your current local data will be replaced.`,
+        message: `Restore ${taskCount} tasks from "${fileName}" (saved: ${modDate}) in your 'Lists' folder? Your current local data will be replaced.`,
         okLabel: "Restore Data",
         onConfirm: async () => {
           try {
@@ -1394,7 +1417,7 @@ const MOVE_CANCEL_PX = 10;
             applyTheme();
             render();
             closeOverlays();
-            setDriveStatus(`Restored ${taskCount} tasks from Google Drive ✓`, "success");
+            setDriveStatus(`Restored ${taskCount} tasks from ${fileName} ✓`, "success");
           } catch (restoreErr) {
             console.error("Failed applying restore:", restoreErr);
             setDriveStatus(`Restore error: ${restoreErr.message}`, "error");
@@ -2449,7 +2472,7 @@ const MOVE_CANCEL_PX = 10;
     { section: "Data Storage", name: "No backend required", status: "done", desc: "100% client-side offline execution." },
     { section: "Data Storage", name: "No account required for offline use", status: "done", desc: "Zero authentication friction; works immediately offline." },
     { section: "Data Storage", name: "JSON Data Backup & Restore", status: "done", desc: "One-click export and import of all tasks, categories, and settings in JSON format." },
-    { section: "Data Storage", name: "Google Drive Cloud Backup & Restore", status: "done", desc: "Client-side Google OAuth integration allowing users to connect their personal Google account to backup and restore tasks across devices." },
+    { section: "Data Storage", name: "Google Drive Cloud Backup & Restore", status: "done", desc: "Client-side Google OAuth integration saving timestamped JSON backups into a dedicated 'Lists' folder (My Drive / Lists) with date & time filenames and direct folder link." },
     { section: "Data Storage", name: "Data stored entirely on device", status: "done", desc: "Confirmed local-first storage with optional private cloud backup." },
 
     // 10. Progressive Web App
