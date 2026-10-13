@@ -53,6 +53,12 @@
               />
             </svg>
           </button>
+          <button type="button" id="btn-cloud-status-indicator" class="icon-btn header-sync-indicator" aria-label="Live Cloud Sync status" title="Live Cloud Sync status" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM10 17l-3.5-3.5 1.41-1.41L10 14.17l5.59-5.59 1.41 1.41L10 17z"/>
+            </svg>
+            <span id="header-sync-dot" class="header-sync-dot"></span>
+          </button>
           <button type="button" id="btn-settings" class="icon-btn" aria-label="Settings" title="Settings">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -527,7 +533,7 @@
             <label class="settings-label" style="margin-bottom: 0;">Multi-Device Live Sync</label>
             <span id="cloud-sync-badge" class="action-badge" style="background: rgba(16, 185, 129, 0.15); color: #047857; font-size: 0.72rem; padding: 2px 8px; border-radius: 6px; font-weight: 600;">Realtime</span>
           </div>
-          <p class="settings-hint">Sync tasks across PC, phone, and tablet in real time using your Google login. Changes sync instantly when online, with full offline access.</p>
+          <p class="settings-hint">Sync tasks in real time across PC, phone, and tablet with your Google account. Never lose work: smart merge combines changes, and new devices automatically adopt your cloud tasks.</p>
 
           <div id="cloud-disconnected-ui">
             <button type="button" class="gsi-material-button" id="btn-cloud-connect">
@@ -557,11 +563,43 @@
               <button type="button" id="btn-cloud-disconnect" class="btn-text-sm" title="Disconnect Live Sync">Disconnect</button>
             </div>
 
-            <div class="settings-actions-row" style="margin-top: 10px;">
-              <button type="button" id="btn-cloud-push-all" class="btn-text-outlined" title="Upload all current local tasks to Cloud">
-                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: -2px; margin-right: 4px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
-                Upload Local to Cloud
+            <!-- Version Comparison & Status Card -->
+            <div class="sync-summary-card">
+              <div class="sync-device-row">
+                <span class="sync-device-label">
+                  <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 6h16v10H4V6zm16 12H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2zm-8 1h4v2h-4v-2z"/></svg>
+                  This Device:
+                </span>
+                <span id="sync-local-count" class="sync-device-count">0 tasks</span>
+              </div>
+              <div class="sync-device-row">
+                <span class="sync-device-label">
+                  <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                  Cloud Storage:
+                </span>
+                <span id="sync-cloud-count" class="sync-device-count">0 tasks</span>
+              </div>
+              <div id="sync-compare-hint" style="font-size: 0.73rem; color: var(--md-on-surface-variant); margin-top: 2px;">
+                Checking sync status...
+              </div>
+            </div>
+
+            <!-- Resolution & Direction Controls -->
+            <div class="sync-actions-grid">
+              <button type="button" id="btn-cloud-merge" class="sync-action-btn-primary" title="Merge both devices safely keeping newest edits">
+                <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                Smart Merge (Keep Both Devices)
               </button>
+              <div class="sync-actions-row-secondary">
+                <button type="button" id="btn-cloud-pull" class="btn-text-outlined" title="Replace this device's tasks with Cloud version">
+                  <svg viewBox="0 0 24 24" width="15" height="15" style="vertical-align: -2px; margin-right: 3px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+                  Pull from Cloud
+                </button>
+                <button type="button" id="btn-cloud-push-all" class="btn-text-outlined" title="Overwrite Cloud with this device's tasks">
+                  <svg viewBox="0 0 24 24" width="15" height="15" style="vertical-align: -2px; margin-right: 3px;"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                  Push to Cloud
+                </button>
+              </div>
             </div>
           </div>
 

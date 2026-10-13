@@ -2173,6 +2173,99 @@ html[data-theme="dark"] .drive-status-message.error {
   color: #ef9a9a;
 }
 
+/* Multi-Device Cloud Sync Card & Controls */
+.sync-summary-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--md-surface-container-low);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sync-device-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.sync-device-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--md-on-surface);
+  font-weight: 500;
+}
+
+.sync-device-count {
+  font-weight: 600;
+  color: var(--md-primary);
+  font-size: 0.82rem;
+}
+
+.sync-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sync-action-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border: 1px solid var(--md-primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.sync-action-btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.sync-action-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sync-actions-row-secondary {
+  display: flex;
+  gap: 8px;
+}
+
+.sync-actions-row-secondary .btn-text-outlined {
+  flex: 1;
+  font-size: 0.76rem;
+  padding: 6px 8px;
+  text-align: center;
+  justify-content: center;
+}
+
+.header-sync-indicator {
+  position: relative;
+}
+
+.header-sync-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 1.5px solid var(--md-surface);
+}
+
 .settings-footer {
   margin-top: 4px;
   padding-top: 14px;

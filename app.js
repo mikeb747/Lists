@@ -18,6 +18,10 @@ import {
   pushSettingsToCloud,
   pushAllToCloud,
   getIsApplyingRemote,
+  setIsApplyingRemote,
+  fetchCloudData,
+  overwriteCloudWithLocal,
+  getLatestRemoteTasks,
 } from "./cloud-sync.js";
 
 const DB_NAME = "priority-planner";
@@ -117,6 +121,13 @@ const MOVE_CANCEL_PX = 10;
     cloudConnectBtn: document.getElementById("btn-cloud-connect"),
     cloudDisconnectBtn: document.getElementById("btn-cloud-disconnect"),
     cloudPushAllBtn: document.getElementById("btn-cloud-push-all"),
+    cloudMergeBtn: document.getElementById("btn-cloud-merge"),
+    cloudPullBtn: document.getElementById("btn-cloud-pull"),
+    syncLocalCount: document.getElementById("sync-local-count"),
+    syncCloudCount: document.getElementById("sync-cloud-count"),
+    syncCompareHint: document.getElementById("sync-compare-hint"),
+    btnCloudStatusIndicator: document.getElementById("btn-cloud-status-indicator"),
+    headerSyncDot: document.getElementById("header-sync-dot"),
     cloudUserName: document.getElementById("cloud-user-name"),
     cloudUserEmail: document.getElementById("cloud-user-email"),
     cloudUserPhoto: document.getElementById("cloud-user-photo"),
@@ -289,6 +300,11 @@ const MOVE_CANCEL_PX = 10;
   }
 
   async function put(storeName, value) {
+    if (!getIsApplyingRemote()) {
+      value.updatedAt = new Date().toISOString();
+    } else if (!value.updatedAt) {
+      value.updatedAt = new Date().toISOString();
+    }
     await reqToPromise(tx(storeName, "readwrite").put(value));
     if (!getIsApplyingRemote() && state.cloudUser) {
       if (storeName === "tasks") pushTaskToCloud(value);
@@ -839,6 +855,7 @@ const MOVE_CANCEL_PX = 10;
 
   function render() {
     applyTheme();
+    updateCloudComparisonUI();
     const appName = state.settings.appName || "Lists";
     if (els.appTitle) {
       els.appTitle.textContent = appName;
@@ -1261,6 +1278,55 @@ const MOVE_CANCEL_PX = 10;
     }
   }
 
+  function updateCloudComparisonUI() {
+    const localCount = (state.tasks || []).length;
+    const remoteCount = state.lastCloudTaskCount ?? 0;
+    if (els.syncLocalCount) {
+      els.syncLocalCount.textContent = `${localCount} task${localCount === 1 ? "" : "s"}`;
+    }
+    if (els.syncCloudCount) {
+      els.syncCloudCount.textContent = `${remoteCount} task${remoteCount === 1 ? "" : "s"}`;
+    }
+
+    if (!state.cloudUser) {
+      if (els.btnCloudStatusIndicator) els.btnCloudStatusIndicator.hidden = true;
+      return;
+    }
+
+    if (els.btnCloudStatusIndicator) els.btnCloudStatusIndicator.hidden = false;
+
+    if (localCount === 0 && remoteCount > 0) {
+      if (els.syncCompareHint) {
+        els.syncCompareHint.textContent = `This device has no tasks. Cloud has ${remoteCount} tasks. Use "Pull from Cloud" or "Smart Merge" to restore.`;
+        els.syncCompareHint.style.color = "#d97706";
+      }
+      if (els.headerSyncDot) els.headerSyncDot.style.background = "#eab308";
+      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = true; // Protect cloud from blank wipe!
+    } else if (localCount > 0 && remoteCount === 0) {
+      if (els.syncCompareHint) {
+        els.syncCompareHint.textContent = `Cloud is empty. Click "Smart Merge" or "Push to Cloud" to initialize Cloud.`;
+        els.syncCompareHint.style.color = "#2563eb";
+      }
+      if (els.headerSyncDot) els.headerSyncDot.style.background = "#3b82f6";
+      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = false;
+    } else if (localCount === remoteCount) {
+      if (els.syncCompareHint) {
+        els.syncCompareHint.textContent = `This device and Cloud are in sync (${localCount} tasks) ✓`;
+        els.syncCompareHint.style.color = "#059669";
+      }
+      if (els.headerSyncDot) els.headerSyncDot.style.background = "#10b981";
+      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = false;
+    } else {
+      const diff = Math.abs(localCount - remoteCount);
+      if (els.syncCompareHint) {
+        els.syncCompareHint.textContent = `${diff} task difference detected between this device and Cloud. Use "Smart Merge" to unify safely.`;
+        els.syncCompareHint.style.color = "#d97706";
+      }
+      if (els.headerSyncDot) els.headerSyncDot.style.background = "#eab308";
+      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = false;
+    }
+  }
+
   function updateCloudSyncUI(user = state.cloudUser) {
     if (!els.cloudDisconnectedUi || !els.cloudConnectedUi) return;
     if (user) {
@@ -1285,6 +1351,8 @@ const MOVE_CANCEL_PX = 10;
         els.cloudSyncBadge.style.background = "rgba(16, 185, 129, 0.15)";
         els.cloudSyncBadge.style.color = "#047857";
       }
+      if (els.btnCloudStatusIndicator) els.btnCloudStatusIndicator.hidden = false;
+      updateCloudComparisonUI();
     } else {
       els.cloudDisconnectedUi.hidden = false;
       els.cloudConnectedUi.hidden = true;
@@ -1293,6 +1361,7 @@ const MOVE_CANCEL_PX = 10;
         els.cloudSyncBadge.style.background = "rgba(100, 116, 139, 0.15)";
         els.cloudSyncBadge.style.color = "#64748b";
       }
+      if (els.btnCloudStatusIndicator) els.btnCloudStatusIndicator.hidden = true;
     }
   }
 
@@ -1310,9 +1379,6 @@ const MOVE_CANCEL_PX = 10;
         state.cloudUser = user;
         updateCloudSyncUI(user);
         setCloudStatus("synced", `Connected as ${user.email} ✓`);
-        if (state.tasks.length > 0) {
-          await pushAllToCloud(state.tasks, state.categories, state.settings);
-        }
       }
     } catch (err) {
       console.error("Cloud sign-in error:", err);
@@ -1344,50 +1410,285 @@ const MOVE_CANCEL_PX = 10;
     });
   }
 
-  async function handleCloudPushAll() {
-    if (!state.cloudUser) return;
+  async function performSmartMerge(remoteTasks) {
+    setIsApplyingRemote(true);
     try {
-      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = true;
-      setCloudStatus("normal", "Uploading all local data to cloud...");
-      await pushAllToCloud(state.tasks, state.categories, state.settings);
+      const localMap = new Map((state.tasks || []).map((t) => [String(t.id), t]));
+      const remoteMap = new Map((remoteTasks || []).map((t) => [String(t.id), t]));
+
+      const toUpload = [];
+      const mergedList = [];
+
+      // 1. Process all remote tasks
+      for (const [id, rTask] of remoteMap.entries()) {
+        const lTask = localMap.get(id);
+        if (!lTask) {
+          await put("tasks", rTask);
+          mergedList.push(rTask);
+        } else {
+          const rTime = new Date(rTask.updatedAt || rTask.createdAt || 0).getTime();
+          const lTime = new Date(lTask.updatedAt || lTask.createdAt || 0).getTime();
+          if (rTime >= lTime) {
+            await put("tasks", rTask);
+            mergedList.push(rTask);
+          } else {
+            mergedList.push(lTask);
+            toUpload.push(lTask);
+          }
+        }
+      }
+
+      // 2. Process tasks that only exist on local device
+      for (const [id, lTask] of localMap.entries()) {
+        if (!remoteMap.has(id)) {
+          mergedList.push(lTask);
+          toUpload.push(lTask);
+        }
+      }
+
+      state.tasks = await getAll("tasks");
+      render();
+
+      if (toUpload.length > 0) {
+        for (const task of toUpload) {
+          await pushTaskToCloud(task);
+        }
+      }
+
+      state.lastCloudTaskCount = mergedList.length;
+      updateCloudComparisonUI();
       const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      setCloudStatus("synced", `All local items synced to Cloud at ${timeStr} ✓`);
-    } catch (err) {
-      console.error("Error pushing all to cloud:", err);
-      setCloudStatus("error", `Upload failed: ${err.message}`);
+      setCloudStatus("synced", `Merged ${mergedList.length} tasks across devices at ${timeStr} ✓`);
+      showToast(`Smart Synced: ${mergedList.length} tasks unified`);
     } finally {
-      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = false;
+      setIsApplyingRemote(false);
     }
   }
 
+  async function handleCloudMerge() {
+    if (!state.cloudUser) return;
+    try {
+      if (els.cloudMergeBtn) els.cloudMergeBtn.disabled = true;
+      setCloudStatus("normal", "Fetching latest Cloud data for smart merge...");
+      const cloudData = await fetchCloudData();
+      if (!cloudData) throw new Error("Could not fetch Cloud data");
+      await performSmartMerge(cloudData.tasks);
+    } catch (err) {
+      console.error("Error merging:", err);
+      setCloudStatus("error", `Merge failed: ${err.message}`);
+    } finally {
+      if (els.cloudMergeBtn) els.cloudMergeBtn.disabled = false;
+    }
+  }
+
+  async function handleCloudPull() {
+    if (!state.cloudUser) return;
+    try {
+      setCloudStatus("normal", "Fetching Cloud tasks...");
+      const cloudData = await fetchCloudData();
+      if (!cloudData) throw new Error("Could not fetch Cloud data");
+      const remoteCount = (cloudData.tasks || []).length;
+      const localCount = state.tasks.length;
+
+      confirmAction({
+        title: "Pull from Cloud?",
+        message: `This will replace this device's ${localCount} task${localCount === 1 ? "" : "s"} with the Cloud's ${remoteCount} task${remoteCount === 1 ? "" : "s"}. Any local tasks not in the Cloud will be replaced.`,
+        okLabel: "Replace Device Tasks",
+        okClass: "danger",
+        onConfirm: async () => {
+          try {
+            if (els.cloudPullBtn) els.cloudPullBtn.disabled = true;
+            setCloudStatus("normal", "Downloading Cloud tasks to this device...");
+            setIsApplyingRemote(true);
+            try {
+              for (const task of state.tasks) {
+                await remove("tasks", task.id);
+              }
+              for (const task of (cloudData.tasks || [])) {
+                await put("tasks", task);
+              }
+              if (Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
+                for (const cat of state.categories) {
+                  await remove("categories", cat.id);
+                }
+                for (const cat of cloudData.categories) {
+                  await put("categories", cat);
+                }
+                state.categories = await getAll("categories");
+                renderTabs();
+              }
+              state.tasks = await getAll("tasks");
+              render();
+            } finally {
+              setIsApplyingRemote(false);
+            }
+            state.lastCloudTaskCount = remoteCount;
+            updateCloudComparisonUI();
+            setCloudStatus("synced", `Downloaded ${remoteCount} tasks from Cloud ✓`);
+            showToast(`Loaded ${remoteCount} tasks from Cloud`);
+          } catch (err) {
+            console.error("Error pulling:", err);
+            setCloudStatus("error", `Pull failed: ${err.message}`);
+          } finally {
+            if (els.cloudPullBtn) els.cloudPullBtn.disabled = false;
+          }
+        },
+      });
+    } catch (err) {
+      console.error("Error preparing pull:", err);
+      setCloudStatus("error", `Error: ${err.message}`);
+    }
+  }
+
+  async function handleCloudPushAll() {
+    if (!state.cloudUser) return;
+    const localCount = state.tasks.length;
+    if (localCount === 0) {
+      showToast("Cannot overwrite Cloud: this device has 0 tasks. Protection against blank wipe.");
+      return;
+    }
+
+    confirmAction({
+      title: "Push to Cloud?",
+      message: `This will overwrite your Cloud database with this device's ${localCount} task${localCount === 1 ? "" : "s"}. Any tasks in the Cloud that don't exist here will be removed.`,
+      okLabel: "Overwrite Cloud",
+      okClass: "danger",
+      onConfirm: async () => {
+        try {
+          if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = true;
+          setCloudStatus("normal", "Overwriting Cloud database with local tasks...");
+          await overwriteCloudWithLocal(state.tasks, state.categories, state.settings);
+          state.lastCloudTaskCount = localCount;
+          updateCloudComparisonUI();
+          const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          setCloudStatus("synced", `Cloud overwritten with ${localCount} tasks from this device at ${timeStr} ✓`);
+          showToast(`Cloud updated with ${localCount} tasks`);
+        } catch (err) {
+          console.error("Error pushing to cloud:", err);
+          setCloudStatus("error", `Push failed: ${err.message}`);
+        } finally {
+          if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = false;
+        }
+      },
+    });
+  }
+
   async function handleRemoteCloudUpdate(payload) {
-    if (getIsApplyingRemote()) return;
     try {
       if (payload.type === "tasks" && Array.isArray(payload.items)) {
-        if (payload.items.length > 0) {
-          const remoteIds = new Set(payload.items.map((t) => t.id));
-          for (const task of payload.items) {
-            await put("tasks", task);
+        const remoteTasks = payload.items;
+        state.lastCloudTaskCount = remoteTasks.length;
+        state.lastCloudSyncTime = new Date();
+
+        if (payload.isInitial) {
+          const localCount = (state.tasks || []).length;
+          const remoteCount = remoteTasks.length;
+
+          // SCENARIO 1: Fresh install / blank device with data in Cloud
+          // Never wipe cloud with blank local data! Download from cloud immediately.
+          if (localCount === 0 && remoteCount > 0) {
+            setIsApplyingRemote(true);
+            try {
+              for (const task of remoteTasks) {
+                await put("tasks", task);
+              }
+              state.tasks = await getAll("tasks");
+              render();
+              setCloudStatus("synced", `Restored ${remoteCount} tasks from Cloud ✓`);
+              showToast(`Restored ${remoteCount} tasks from Cloud`);
+            } finally {
+              setIsApplyingRemote(false);
+            }
+            updateCloudComparisonUI();
+            return;
           }
-          for (const localTask of state.tasks) {
-            if (!remoteIds.has(localTask.id)) {
-              await remove("tasks", localTask.id);
+
+          // SCENARIO 2: Local device has tasks, but Cloud is empty (first backup to Cloud)
+          if (localCount > 0 && remoteCount === 0) {
+            setCloudStatus("normal", "Syncing local tasks to newly connected Cloud...");
+            await pushAllToCloud(state.tasks, state.categories, state.settings);
+            setCloudStatus("synced", `Initialized Cloud with ${localCount} local tasks ✓`);
+            updateCloudComparisonUI();
+            return;
+          }
+
+          // SCENARIO 3: BOTH local and remote have tasks (multi-device convergence)
+          if (localCount > 0 && remoteCount > 0) {
+            await performSmartMerge(remoteTasks);
+            updateCloudComparisonUI();
+            return;
+          }
+
+          updateCloudComparisonUI();
+          return;
+        }
+
+        // Incremental real-time updates (after initial load)
+        setIsApplyingRemote(true);
+        try {
+          const localMap = new Map((state.tasks || []).map((t) => [String(t.id), t]));
+          let modifiedCount = 0;
+
+          if (payload.changes && payload.changes.length > 0) {
+            for (const ch of payload.changes) {
+              if (ch.type === "removed") {
+                await remove("tasks", ch.id);
+                modifiedCount++;
+              } else if (ch.type === "added" || ch.type === "modified") {
+                const rTask = ch.data ? { id: ch.id, ...ch.data } : null;
+                if (!rTask) continue;
+                const lTask = localMap.get(String(ch.id));
+                if (!lTask) {
+                  await put("tasks", rTask);
+                  modifiedCount++;
+                } else {
+                  const rTime = new Date(rTask.updatedAt || rTask.createdAt || 0).getTime();
+                  const lTime = new Date(lTask.updatedAt || lTask.createdAt || 0).getTime();
+                  if (rTime >= lTime) {
+                    await put("tasks", rTask);
+                    modifiedCount++;
+                  }
+                }
+              }
             }
           }
-          state.tasks = await getAll("tasks");
-          render();
-        } else if (state.tasks.length === 0) {
-          // both empty
-        } else {
-          await pushAllToCloud(state.tasks, state.categories, state.settings);
-        }
-      } else if (payload.type === "categories" && Array.isArray(payload.items)) {
-        if (payload.items.length > 0) {
-          for (const cat of payload.items) {
-            await put("categories", cat);
+
+          if (modifiedCount > 0) {
+            state.tasks = await getAll("tasks");
+            render();
           }
-          state.categories = await getAll("categories");
-          renderTabs();
+        } finally {
+          setIsApplyingRemote(false);
+        }
+
+        updateCloudComparisonUI();
+      } else if (payload.type === "categories" && Array.isArray(payload.items)) {
+        const remoteCats = payload.items;
+        if (payload.isInitial && state.categories.length <= 2 && remoteCats.length > 0) {
+          setIsApplyingRemote(true);
+          try {
+            for (const cat of remoteCats) {
+              await put("categories", cat);
+            }
+            state.categories = await getAll("categories");
+            renderTabs();
+          } finally {
+            setIsApplyingRemote(false);
+          }
+        } else {
+          setIsApplyingRemote(true);
+          try {
+            const localCatMap = new Map(state.categories.map((c) => [c.id, c]));
+            for (const cat of remoteCats) {
+              if (!localCatMap.has(cat.id)) {
+                await put("categories", cat);
+              }
+            }
+            state.categories = await getAll("categories");
+            renderTabs();
+          } finally {
+            setIsApplyingRemote(false);
+          }
         }
       } else if (payload.type === "settings" && payload.item) {
         state.settings = { ...state.settings, ...payload.item };
@@ -1396,7 +1697,7 @@ const MOVE_CANCEL_PX = 10;
         syncSettingsSheet();
       }
     } catch (err) {
-      console.warn("Error applying remote cloud update:", err);
+      console.warn("Error handling remote cloud update:", err);
     }
   }
 
@@ -2875,6 +3176,22 @@ const MOVE_CANCEL_PX = 10;
       els.cloudPushAllBtn.addEventListener("click", handleCloudPushAll);
     }
 
+    if (els.cloudMergeBtn) {
+      els.cloudMergeBtn.addEventListener("click", handleCloudMerge);
+    }
+
+    if (els.cloudPullBtn) {
+      els.cloudPullBtn.addEventListener("click", handleCloudPull);
+    }
+
+    if (els.btnCloudStatusIndicator) {
+      els.btnCloudStatusIndicator.addEventListener("click", () => {
+        openOverlay(els.settingsSheet);
+        const group = document.getElementById("cloud-sync-group");
+        if (group) group.scrollIntoView({ behavior: "smooth" });
+      });
+    }
+
     if (els.googleConnectBtn) {
       els.googleConnectBtn.addEventListener("click", handleGoogleConnect);
     }
@@ -4200,8 +4517,12 @@ const MOVE_CANCEL_PX = 10;
         updateCloudSyncUI(user);
       },
       onRemoteUpdate: handleRemoteCloudUpdate,
-      onSyncStatus: (type, text) => {
+      onSyncStatus: (type, text, details) => {
         setCloudStatus(type, text);
+        if (details?.remoteCount !== undefined) {
+          state.lastCloudTaskCount = details.remoteCount;
+          updateCloudComparisonUI();
+        }
       },
     });
 

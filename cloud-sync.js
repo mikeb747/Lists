@@ -17,6 +17,7 @@ import {
   setDoc,
   deleteDoc,
   getDocs,
+  getDoc,
   writeBatch,
   getDocFromServer,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -39,6 +40,7 @@ let unsubCategories = null;
 let unsubSettings = null;
 let isApplyingRemoteUpdate = false;
 let syncStatusCallback = null;
+let latestRemoteTasks = [];
 
 export function handleFirestoreError(error, operationType, path = null) {
   const errInfo = {
@@ -76,8 +78,16 @@ export function getIsApplyingRemote() {
   return isApplyingRemoteUpdate;
 }
 
+export function setIsApplyingRemote(val) {
+  isApplyingRemoteUpdate = Boolean(val);
+}
+
 export function getCurrentCloudUser() {
   return currentUser;
+}
+
+export function getLatestRemoteTasks() {
+  return [...latestRemoteTasks];
 }
 
 /**
@@ -111,6 +121,7 @@ export async function initFirebaseCloudSync({ onAuthChange, onRemoteUpdate, onSy
         subscribeRealtime(user, onRemoteUpdate);
       } else {
         unsubscribeRealtime();
+        latestRemoteTasks = [];
         if (syncStatusCallback) syncStatusCallback("offline", "Signed out from live sync");
       }
       if (onAuthChange) onAuthChange(user);
@@ -141,10 +152,46 @@ export async function signInCloudWithGoogle() {
  */
 export async function signOutCloud() {
   unsubscribeRealtime();
+  latestRemoteTasks = [];
   if (auth) {
     await signOut(auth);
   }
   currentUser = null;
+}
+
+/**
+ * Fetch all current cloud data once (tasks, categories, settings).
+ */
+export async function fetchCloudData() {
+  if (!db || !currentUser?.uid) return null;
+  const uid = currentUser.uid;
+  try {
+    const tasksSnap = await getDocs(collection(db, "users", uid, "tasks"));
+    const tasks = [];
+    tasksSnap.forEach((docSnap) => {
+      tasks.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    const catsSnap = await getDocs(collection(db, "users", uid, "categories"));
+    const categories = [];
+    catsSnap.forEach((docSnap) => {
+      categories.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    let settings = null;
+    try {
+      const setSnap = await getDoc(doc(db, "users", uid, "settings", "prefs"));
+      if (setSnap.exists()) {
+        settings = setSnap.data();
+      }
+    } catch (_) {}
+
+    latestRemoteTasks = tasks;
+    return { tasks, categories, settings };
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `users/${uid}`);
+    throw err;
+  }
 }
 
 /**
@@ -163,36 +210,50 @@ function subscribeRealtime(user, onRemoteUpdate) {
   const categoriesRef = collection(db, "users", uid, "categories");
   const settingsDocRef = doc(db, "users", uid, "settings", "prefs");
 
-  // Keep track of first snapshot loads to avoid unnecessary local re-writes
   let initialTasksLoaded = false;
   let initialCatsLoaded = false;
 
   unsubTasks = onSnapshot(
     tasksRef,
-    (snapshot) => {
-      // Ignore if changes originated from this client's own pending writes
+    async (snapshot) => {
       const hasPendingWrites = snapshot.metadata.hasPendingWrites;
       const remoteTasks = [];
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        remoteTasks.push({ id: docSnap.id, ...data });
+        remoteTasks.push({ id: docSnap.id, ...docSnap.data() });
       });
 
-      if (!hasPendingWrites || !initialTasksLoaded) {
-        initialTasksLoaded = true;
-        isApplyingRemoteUpdate = true;
-        try {
-          if (onRemoteUpdate) onRemoteUpdate({ type: "tasks", items: remoteTasks });
-        } finally {
-          setTimeout(() => {
-            isApplyingRemoteUpdate = false;
-          }, 60);
+      const isFirst = !initialTasksLoaded;
+      initialTasksLoaded = true;
+      latestRemoteTasks = remoteTasks;
+
+      const changes = snapshot.docChanges().map((ch) => ({
+        type: ch.type,
+        id: ch.doc.id,
+        data: ch.doc.data(),
+      }));
+
+      // Deliver remote update to application listener
+      if (!hasPendingWrites || isFirst) {
+        if (onRemoteUpdate) {
+          try {
+            await onRemoteUpdate({
+              type: "tasks",
+              items: remoteTasks,
+              isInitial: isFirst,
+              changes,
+            });
+          } catch (e) {
+            console.error("Error in onRemoteUpdate:", e);
+          }
         }
       }
 
       if (syncStatusCallback) {
         const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-        syncStatusCallback("synced", `Live Synced at ${timeStr} ✓`);
+        syncStatusCallback("synced", `Live Synced at ${timeStr} ✓`, {
+          remoteCount: remoteTasks.length,
+          timeStr,
+        });
       }
     },
     (error) => {
@@ -203,23 +264,27 @@ function subscribeRealtime(user, onRemoteUpdate) {
 
   unsubCategories = onSnapshot(
     categoriesRef,
-    (snapshot) => {
+    async (snapshot) => {
       const hasPendingWrites = snapshot.metadata.hasPendingWrites;
       const remoteCategories = [];
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        remoteCategories.push({ id: docSnap.id, ...data });
+        remoteCategories.push({ id: docSnap.id, ...docSnap.data() });
       });
 
-      if (!hasPendingWrites || !initialCatsLoaded) {
-        initialCatsLoaded = true;
-        isApplyingRemoteUpdate = true;
-        try {
-          if (onRemoteUpdate) onRemoteUpdate({ type: "categories", items: remoteCategories });
-        } finally {
-          setTimeout(() => {
-            isApplyingRemoteUpdate = false;
-          }, 60);
+      const isFirst = !initialCatsLoaded;
+      initialCatsLoaded = true;
+
+      if (!hasPendingWrites || isFirst) {
+        if (onRemoteUpdate) {
+          try {
+            await onRemoteUpdate({
+              type: "categories",
+              items: remoteCategories,
+              isInitial: isFirst,
+            });
+          } catch (e) {
+            console.error("Error in onRemoteUpdate categories:", e);
+          }
         }
       }
     },
@@ -230,16 +295,15 @@ function subscribeRealtime(user, onRemoteUpdate) {
 
   unsubSettings = onSnapshot(
     settingsDocRef,
-    (docSnap) => {
+    async (docSnap) => {
       if (docSnap.exists() && !docSnap.metadata.hasPendingWrites) {
         const remoteSettings = docSnap.data();
-        isApplyingRemoteUpdate = true;
-        try {
-          if (onRemoteUpdate) onRemoteUpdate({ type: "settings", item: remoteSettings });
-        } finally {
-          setTimeout(() => {
-            isApplyingRemoteUpdate = false;
-          }, 60);
+        if (onRemoteUpdate) {
+          try {
+            await onRemoteUpdate({ type: "settings", item: remoteSettings });
+          } catch (e) {
+            console.error("Error in onRemoteUpdate settings:", e);
+          }
         }
       }
     },
@@ -277,7 +341,7 @@ export async function pushTaskToCloud(task) {
     const taskRef = doc(db, "users", currentUser.uid, "tasks", String(task.id));
     const payload = {
       ...task,
-      updatedAt: new Date().toISOString(),
+      updatedAt: task.updatedAt || new Date().toISOString(),
     };
     await setDoc(taskRef, payload, { merge: true });
   } catch (err) {
@@ -309,7 +373,7 @@ export async function pushCategoryToCloud(category) {
     const catRef = doc(db, "users", currentUser.uid, "categories", String(category.id));
     const payload = {
       ...category,
-      updatedAt: new Date().toISOString(),
+      updatedAt: category.updatedAt || new Date().toISOString(),
     };
     await setDoc(catRef, payload, { merge: true });
   } catch (err) {
@@ -350,36 +414,129 @@ export async function pushSettingsToCloud(settings) {
 }
 
 /**
- * Batch upload all local tasks, categories, and settings to the cloud.
- * Useful on first connection or manual "Push all to Cloud" action.
+ * Batch upload/merge local tasks, categories, and settings to the cloud.
  */
 export async function pushAllToCloud(tasks, categories, settings) {
   if (!db || !currentUser?.uid) return;
   const uid = currentUser.uid;
-  const batch = writeBatch(db);
+  const nowIso = new Date().toISOString();
+
+  let batch = writeBatch(db);
+  let opCount = 0;
 
   if (Array.isArray(tasks)) {
     for (const task of tasks) {
+      if (opCount >= 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        opCount = 0;
+      }
       const ref = doc(db, "users", uid, "tasks", String(task.id));
-      batch.set(ref, { ...task, updatedAt: new Date().toISOString() }, { merge: true });
+      batch.set(ref, { ...task, updatedAt: task.updatedAt || nowIso }, { merge: true });
+      opCount++;
     }
   }
 
   if (Array.isArray(categories)) {
     for (const cat of categories) {
+      if (opCount >= 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        opCount = 0;
+      }
       const ref = doc(db, "users", uid, "categories", String(cat.id));
-      batch.set(ref, { ...cat, updatedAt: new Date().toISOString() }, { merge: true });
+      batch.set(ref, { ...cat, updatedAt: cat.updatedAt || nowIso }, { merge: true });
+      opCount++;
     }
   }
 
   if (settings) {
+    if (opCount >= 450) {
+      await batch.commit();
+      batch = writeBatch(db);
+      opCount = 0;
+    }
     const ref = doc(db, "users", uid, "settings", "prefs");
-    batch.set(ref, { ...settings, updatedAt: new Date().toISOString() }, { merge: true });
+    batch.set(ref, { ...settings, updatedAt: nowIso }, { merge: true });
+    opCount++;
   }
 
-  try {
-    await batch.commit();
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `users/${uid}`);
+  if (opCount > 0) {
+    try {
+      await batch.commit();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${uid}`);
+      throw err;
+    }
+  }
+}
+
+/**
+ * Explicit Overwrite: Replace Cloud database completely with local dataset.
+ * Removes obsolete tasks from Cloud that no longer exist locally, then writes all local tasks.
+ */
+export async function overwriteCloudWithLocal(tasks, categories, settings) {
+  if (!db || !currentUser?.uid) throw new Error("Not connected to Cloud Sync");
+  const uid = currentUser.uid;
+  const nowIso = new Date().toISOString();
+
+  // 1. Fetch current cloud tasks to identify deletions
+  const existingSnap = await getDocs(collection(db, "users", uid, "tasks"));
+  const localTaskIds = new Set((tasks || []).map((t) => String(t.id)));
+
+  let batch = writeBatch(db);
+  let opCount = 0;
+
+  existingSnap.forEach((docSnap) => {
+    if (!localTaskIds.has(docSnap.id)) {
+      batch.delete(doc(db, "users", uid, "tasks", docSnap.id));
+      opCount++;
+    }
+  });
+
+  if (Array.isArray(tasks)) {
+    for (const task of tasks) {
+      if (opCount >= 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        opCount = 0;
+      }
+      const ref = doc(db, "users", uid, "tasks", String(task.id));
+      batch.set(ref, { ...task, updatedAt: task.updatedAt || nowIso });
+      opCount++;
+    }
+  }
+
+  if (Array.isArray(categories)) {
+    for (const cat of categories) {
+      if (opCount >= 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        opCount = 0;
+      }
+      const ref = doc(db, "users", uid, "categories", String(cat.id));
+      batch.set(ref, { ...cat, updatedAt: cat.updatedAt || nowIso });
+      opCount++;
+    }
+  }
+
+  if (settings) {
+    if (opCount >= 450) {
+      await batch.commit();
+      batch = writeBatch(db);
+      opCount = 0;
+    }
+    const ref = doc(db, "users", uid, "settings", "prefs");
+    batch.set(ref, { ...settings, updatedAt: nowIso });
+    opCount++;
+  }
+
+  if (opCount > 0) {
+    try {
+      await batch.commit();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${uid}`);
+      throw err;
+    }
   }
 }
