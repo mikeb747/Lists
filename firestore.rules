@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidTask(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 500 &&
+             (!('importance' in data) || data.importance is number) &&
+             (!('estimatedTime' in data) || data.estimatedTime is number) &&
+             (!('dueDate' in data) || (data.dueDate is string && data.dueDate.size() <= 64)) &&
+             (!('categoryId' in data) || (data.categoryId is string && data.categoryId.size() <= 128)) &&
+             (!('completed' in data) || data.completed is bool) &&
+             (!('sortPosition' in data) || data.sortPosition is number) &&
+             (!('isSubheading' in data) || data.isSubheading is bool) &&
+             (!('recurrence' in data) || (data.recurrence is string && data.recurrence.size() <= 64)) &&
+             (!('reminderAt' in data) || (data.reminderAt is string && data.reminderAt.size() <= 64)) &&
+             (!('subtasks' in data) || (data.subtasks is list && data.subtasks.size() <= 200)) &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidCategory(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('sortPosition' in data) || data.sortPosition is number) &&
+             (!('color' in data) || (data.color is string && data.color.size() <= 32)) &&
+             (!('isCompact' in data) || data.isCompact is bool) &&
+             (!('hiddenFromTasks' in data) || data.hiddenFromTasks is bool) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidSettings(data) {
+      return (!('theme' in data) || (data.theme is string && data.theme.size() <= 32)) &&
+             (!('colorTheme' in data) || (data.colorTheme is string && data.colorTheme.size() <= 32)) &&
+             (!('taskColorMode' in data) || (data.taskColorMode is string && data.taskColorMode.size() <= 32)) &&
+             (!('activeTab' in data) || (data.activeTab is string && data.activeTab.size() <= 128)) &&
+             (!('tabDragHoldMs' in data) || data.tabDragHoldMs is number) &&
+             (!('tabOptionsHoldMs' in data) || data.tabOptionsHoldMs is number) &&
+             (!('customAppName' in data) || (data.customAppName is string && data.customAppName.size() <= 100)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    // User scope matches
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+
+      match /tasks/{taskId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(taskId) && isValidTask(incoming());
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /categories/{categoryId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming());
+        allow delete: if isOwner(userId) && isValidId(categoryId);
+      }
+
+      match /settings/{settingId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(settingId) && isValidSettings(incoming());
+        allow delete: if isOwner(userId) && isValidId(settingId);
+      }
+    }
+  }
+}

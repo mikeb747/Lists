@@ -7,6 +7,18 @@ import {
   getCachedToken,
   getCurrentUser,
 } from "./google-drive.js";
+import {
+  initFirebaseCloudSync,
+  signInCloudWithGoogle,
+  signOutCloud,
+  pushTaskToCloud,
+  deleteTaskFromCloud,
+  pushCategoryToCloud,
+  deleteCategoryFromCloud,
+  pushSettingsToCloud,
+  pushAllToCloud,
+  getIsApplyingRemote,
+} from "./cloud-sync.js";
 
 const DB_NAME = "priority-planner";
 const DB_VERSION = 1;
@@ -100,6 +112,16 @@ const MOVE_CANCEL_PX = 10;
     toastTitle: document.getElementById("toast-title"),
     toastMsg: document.getElementById("toast-msg"),
     toastClose: document.getElementById("toast-close"),
+    cloudDisconnectedUi: document.getElementById("cloud-disconnected-ui"),
+    cloudConnectedUi: document.getElementById("cloud-connected-ui"),
+    cloudConnectBtn: document.getElementById("btn-cloud-connect"),
+    cloudDisconnectBtn: document.getElementById("btn-cloud-disconnect"),
+    cloudPushAllBtn: document.getElementById("btn-cloud-push-all"),
+    cloudUserName: document.getElementById("cloud-user-name"),
+    cloudUserEmail: document.getElementById("cloud-user-email"),
+    cloudUserPhoto: document.getElementById("cloud-user-photo"),
+    cloudSyncStatus: document.getElementById("cloud-sync-status"),
+    cloudSyncBadge: document.getElementById("cloud-sync-badge"),
     driveDisconnectedUi: document.getElementById("drive-disconnected-ui"),
     driveConnectedUi: document.getElementById("drive-connected-ui"),
     googleConnectBtn: document.getElementById("btn-google-drive-connect"),
@@ -167,6 +189,8 @@ const MOVE_CANCEL_PX = 10;
     tasks: [],
     categories: [],
     googleUser: null,
+    cloudUser: null,
+    driveFolderLink: null,
     suppressTabClick: false,
     isDraggingTab: false,
     longPressFired: false,
@@ -266,10 +290,19 @@ const MOVE_CANCEL_PX = 10;
 
   async function put(storeName, value) {
     await reqToPromise(tx(storeName, "readwrite").put(value));
+    if (!getIsApplyingRemote() && state.cloudUser) {
+      if (storeName === "tasks") pushTaskToCloud(value);
+      else if (storeName === "categories") pushCategoryToCloud(value);
+      else if (storeName === "settings") pushSettingsToCloud(value);
+    }
   }
 
   async function remove(storeName, id) {
     await reqToPromise(tx(storeName, "readwrite").delete(id));
+    if (!getIsApplyingRemote() && state.cloudUser) {
+      if (storeName === "tasks") deleteTaskFromCloud(id);
+      else if (storeName === "categories") deleteCategoryFromCloud(id);
+    }
   }
 
   async function loadAll() {
@@ -856,6 +889,7 @@ const MOVE_CANCEL_PX = 10;
     if (els.valTimer2) els.valTimer2.textContent = `${t2} ms`;
 
     updateInstallUI();
+    updateCloudSyncUI();
     updateNotificationSettingsUI();
   }
 
@@ -1224,6 +1258,145 @@ const MOVE_CANCEL_PX = 10;
       closeOverlays();
     } catch (err) {
       console.warn("Failed to restore backup:", err);
+    }
+  }
+
+  function updateCloudSyncUI(user = state.cloudUser) {
+    if (!els.cloudDisconnectedUi || !els.cloudConnectedUi) return;
+    if (user) {
+      els.cloudDisconnectedUi.hidden = true;
+      els.cloudConnectedUi.hidden = false;
+      if (els.cloudUserName) {
+        els.cloudUserName.textContent = user.displayName || user.email?.split("@")[0] || "User";
+      }
+      if (els.cloudUserEmail) {
+        els.cloudUserEmail.textContent = user.email || "";
+      }
+      if (els.cloudUserPhoto) {
+        if (user.photoURL) {
+          els.cloudUserPhoto.src = user.photoURL;
+          els.cloudUserPhoto.style.display = "block";
+        } else {
+          els.cloudUserPhoto.style.display = "none";
+        }
+      }
+      if (els.cloudSyncBadge) {
+        els.cloudSyncBadge.textContent = "Live Connected";
+        els.cloudSyncBadge.style.background = "rgba(16, 185, 129, 0.15)";
+        els.cloudSyncBadge.style.color = "#047857";
+      }
+    } else {
+      els.cloudDisconnectedUi.hidden = false;
+      els.cloudConnectedUi.hidden = true;
+      if (els.cloudSyncBadge) {
+        els.cloudSyncBadge.textContent = "Offline";
+        els.cloudSyncBadge.style.background = "rgba(100, 116, 139, 0.15)";
+        els.cloudSyncBadge.style.color = "#64748b";
+      }
+    }
+  }
+
+  function setCloudStatus(type, text) {
+    if (!els.cloudSyncStatus) return;
+    els.cloudSyncStatus.className = `drive-status-message ${type === "synced" ? "success" : (type === "error" ? "error" : "normal")}`;
+    els.cloudSyncStatus.innerHTML = `<span>${escapeHtml(text)}</span>`;
+  }
+
+  async function handleCloudConnect() {
+    try {
+      setCloudStatus("normal", "Opening Google sign-in window...");
+      const user = await signInCloudWithGoogle();
+      if (user) {
+        state.cloudUser = user;
+        updateCloudSyncUI(user);
+        setCloudStatus("synced", `Connected as ${user.email} ✓`);
+        if (state.tasks.length > 0) {
+          await pushAllToCloud(state.tasks, state.categories, state.settings);
+        }
+      }
+    } catch (err) {
+      console.error("Cloud sign-in error:", err);
+      let msg = err.message || "Failed to sign in";
+      if (err.code === "auth/popup-blocked") {
+        msg = "Popup was blocked by your browser. Please allow popups.";
+      } else if (err.code === "auth/popup-closed-by-user") {
+        msg = "Sign-in cancelled. Click to try again.";
+      }
+      setCloudStatus("error", msg);
+    }
+  }
+
+  async function handleCloudDisconnect() {
+    confirmAction({
+      title: "Disconnect Live Cloud Sync?",
+      message: "Disconnecting will stop syncing with your other devices. Your local tasks on this device will remain saved.",
+      okLabel: "Disconnect",
+      onConfirm: async () => {
+        try {
+          await signOutCloud();
+          state.cloudUser = null;
+          updateCloudSyncUI(null);
+          setCloudStatus("normal", "Disconnected from live sync");
+        } catch (err) {
+          console.error("Error signing out:", err);
+        }
+      },
+    });
+  }
+
+  async function handleCloudPushAll() {
+    if (!state.cloudUser) return;
+    try {
+      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = true;
+      setCloudStatus("normal", "Uploading all local data to cloud...");
+      await pushAllToCloud(state.tasks, state.categories, state.settings);
+      const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      setCloudStatus("synced", `All local items synced to Cloud at ${timeStr} ✓`);
+    } catch (err) {
+      console.error("Error pushing all to cloud:", err);
+      setCloudStatus("error", `Upload failed: ${err.message}`);
+    } finally {
+      if (els.cloudPushAllBtn) els.cloudPushAllBtn.disabled = false;
+    }
+  }
+
+  async function handleRemoteCloudUpdate(payload) {
+    if (getIsApplyingRemote()) return;
+    try {
+      if (payload.type === "tasks" && Array.isArray(payload.items)) {
+        if (payload.items.length > 0) {
+          const remoteIds = new Set(payload.items.map((t) => t.id));
+          for (const task of payload.items) {
+            await put("tasks", task);
+          }
+          for (const localTask of state.tasks) {
+            if (!remoteIds.has(localTask.id)) {
+              await remove("tasks", localTask.id);
+            }
+          }
+          state.tasks = await getAll("tasks");
+          render();
+        } else if (state.tasks.length === 0) {
+          // both empty
+        } else {
+          await pushAllToCloud(state.tasks, state.categories, state.settings);
+        }
+      } else if (payload.type === "categories" && Array.isArray(payload.items)) {
+        if (payload.items.length > 0) {
+          for (const cat of payload.items) {
+            await put("categories", cat);
+          }
+          state.categories = await getAll("categories");
+          renderTabs();
+        }
+      } else if (payload.type === "settings" && payload.item) {
+        state.settings = { ...state.settings, ...payload.item };
+        await saveSettings();
+        applyTheme();
+        syncSettingsSheet();
+      }
+    } catch (err) {
+      console.warn("Error applying remote cloud update:", err);
     }
   }
 
@@ -2469,6 +2642,7 @@ const MOVE_CANCEL_PX = 10;
 
     // 9. Data Storage & Sync
     { section: "Data Storage", name: "Local Storage / IndexedDB", status: "done", desc: "IndexedDB database 'priority-planner' with 3 stores." },
+    { section: "Data Storage", name: "Real-Time Cloud Sync (Firebase)", status: "done", desc: "Multi-device real-time sync with Google Login via Firebase Cloud Firestore, syncing tasks, categories, and settings across phone, PC, and tablet instantly with full offline access." },
     { section: "Data Storage", name: "No backend required", status: "done", desc: "100% client-side offline execution." },
     { section: "Data Storage", name: "No account required for offline use", status: "done", desc: "Zero authentication friction; works immediately offline." },
     { section: "Data Storage", name: "JSON Data Backup & Restore", status: "done", desc: "One-click export and import of all tasks, categories, and settings in JSON format." },
@@ -2479,7 +2653,7 @@ const MOVE_CANCEL_PX = 10;
     { section: "PWA", name: "Installation", status: "done", desc: "PWA installable banner and offline service worker." },
     { section: "PWA", name: "Web Server / Hosting", status: "done", desc: "Static Node.js Express server configured on port 3000." },
     { section: "PWA", name: "Runs like an app / Home screen icon", status: "done", desc: "Configured with standalone display mode." },
-    { section: "PWA", name: "PWA Components (manifest, sw, icons)", status: "done", desc: "Complete manifest.json, sw.js cache, and 192/512 icons." },
+    { section: "PWA", name: "PWA Components (manifest, sw, icons)", status: "done", desc: "Complete manifest.json with unique id 'lists-priority-planner', relative scope './', sw.js cache, and 192/512 icons." },
   ];
 
   function renderTracker(filter = "all") {
@@ -2687,6 +2861,18 @@ const MOVE_CANCEL_PX = 10;
         const file = e.target.files?.[0];
         if (file) importData(file);
       });
+    }
+
+    if (els.cloudConnectBtn) {
+      els.cloudConnectBtn.addEventListener("click", handleCloudConnect);
+    }
+
+    if (els.cloudDisconnectBtn) {
+      els.cloudDisconnectBtn.addEventListener("click", handleCloudDisconnect);
+    }
+
+    if (els.cloudPushAllBtn) {
+      els.cloudPushAllBtn.addEventListener("click", handleCloudPushAll);
     }
 
     if (els.googleConnectBtn) {
@@ -4006,6 +4192,17 @@ const MOVE_CANCEL_PX = 10;
     setInterval(checkPendingReminders, 15000);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) checkPendingReminders();
+    });
+
+    initFirebaseCloudSync({
+      onAuthChange: (user) => {
+        state.cloudUser = user;
+        updateCloudSyncUI(user);
+      },
+      onRemoteUpdate: handleRemoteCloudUpdate,
+      onSyncStatus: (type, text) => {
+        setCloudStatus(type, text);
+      },
     });
 
     initGoogleAuth((user, token) => {

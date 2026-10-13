@@ -1,0 +1,175 @@
+{
+  "entities": {
+    "Task": {
+      "title": "Task",
+      "description": "Task item with priority, category, subtasks, and metadata",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique task ID",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Task title",
+          "maxLength": 500
+        },
+        "importance": {
+          "type": "number",
+          "description": "Importance rating 1-5"
+        },
+        "estimatedTime": {
+          "type": "number",
+          "description": "Estimated time in minutes"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Due date string",
+          "maxLength": 64
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Associated category tab ID",
+          "maxLength": 128
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Completion status"
+        },
+        "sortPosition": {
+          "type": "number",
+          "description": "Numeric sort order position"
+        },
+        "isSubheading": {
+          "type": "boolean",
+          "description": "Whether item is a subheading"
+        },
+        "recurrence": {
+          "type": "string",
+          "description": "Recurrence rule",
+          "maxLength": 64
+        },
+        "reminderAt": {
+          "type": "string",
+          "description": "Reminder ISO datetime",
+          "maxLength": 64
+        },
+        "subtasks": {
+          "type": "array",
+          "description": "Subtask checklist items"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp",
+          "maxLength": 64
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last modified ISO timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Category tabs for organizing tasks",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique category ID",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Tab title or emoji",
+          "maxLength": 100
+        },
+        "sortPosition": {
+          "type": "number",
+          "description": "Tab position left-to-right"
+        },
+        "color": {
+          "type": "string",
+          "description": "Custom tab color name",
+          "maxLength": 32
+        },
+        "isCompact": {
+          "type": "boolean",
+          "description": "Compact display toggle"
+        },
+        "hiddenFromTasks": {
+          "type": "boolean",
+          "description": "Hidden from All tab toggle"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last modified ISO timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "User preferences and settings",
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "description": "Theme: light, dark, or system",
+          "maxLength": 32
+        },
+        "colorTheme": {
+          "type": "string",
+          "description": "Accent color name",
+          "maxLength": 32
+        },
+        "taskColorMode": {
+          "type": "string",
+          "description": "Task card color mode",
+          "maxLength": 32
+        },
+        "activeTab": {
+          "type": "string",
+          "description": "Last active tab ID",
+          "maxLength": 128
+        },
+        "tabDragHoldMs": {
+          "type": "number",
+          "description": "Tab drag hold milliseconds"
+        },
+        "tabOptionsHoldMs": {
+          "type": "number",
+          "description": "Tab options hold milliseconds"
+        },
+        "customAppName": {
+          "type": "string",
+          "description": "Custom program title",
+          "maxLength": 100
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last modified ISO timestamp",
+          "maxLength": 64
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User tasks collection"
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User category tabs collection"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": "Settings",
+      "description": "User settings document"
+    }
+  }
+}

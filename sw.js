@@ -1,9 +1,10 @@
-const CACHE_NAME = "priority-planner-v14";
+const CACHE_NAME = "priority-planner-v16";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./cloud-sync.js",
   "./google-drive.js",
   "./manifest.json",
   "./icons/icon-192.png",
