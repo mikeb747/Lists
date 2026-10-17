@@ -1,215 +1,39 @@
-'Lists' - Android App
+# Lists - React PWA
 
-Prompt: Build a Progressive Web App (PWA) called Lists.
-The app must be mobile-first and work well on Android phones.
- 
-TECHNOLOGY
-Plain HTML, CSS, Vanilla JavaScript, No frameworks, Store data using browser local storage (IndexedDB), Installable as a PWA, JS Timers + Notifications
+A mobile-first, high-performance Progressive Web App (PWA) rewritten in **React + TypeScript + Vite**.
 
-LAYOUT
- 
-The app should have:
-- Top toolbar (Filters & Settings button)
-- Different Tabs
-- Task list
-- Floating Add Task button at the bottom right corner
+## Overview
+Lists allows users to plan tasks by importance, estimated duration, due dates, recurrence rules, and custom categories. It includes real-time multi-device cloud synchronization with Firebase Firestore & Google Auth, Google Drive snapshot backup/restore, an integrated Pomodoro focus timer with synth audio chimes, and productivity analytics.
 
+## Technology Stack
+- **Framework**: React 19 + TypeScript
+- **Bundler & Dev Server**: Vite (listening on port 3000)
+- **Styling**: Material Design 3 CSS custom properties with 16 color themes + Light/Dark/System modes
+- **Local Persistence**: IndexedDB (`priority-planner`)
+- **Cloud Database**: Firebase Firestore with real-time `onSnapshot` subscriptions
+- **Authentication**: Firebase Google Auth with popup
+- **Cloud Backup**: Google Drive REST API v3
+- **Audio & Alerts**: Web Audio API synthesizer chimes & Web Notifications API
 
-Feature list:
-        
-    Tasks
-          Add task button (+) with task list
-          Long-press on task
-            Edit task
-            Delete task
-            Mark task as complete
-            Move task (Moves to different tab)
-            Archive completed tasks (Moves to archive tab)
-            Delete task
-            Make task a subheading, bold text, useful for a holiday itinerary (no longer an actual task)
-            Set Reminder (Notification
-
-    Task Fields (Options when adding a task)
-          Task name
-          Importance rating (1-5)
-          Estimated time/effort (im minutes)
-          Due date
-          Tab category
-          Created date (created automatically)
-          Completed date (created when marked complete)
-      
-    Tabs
-        User Defined, initially just 1 tab and a '+' button 
-        Tabs can be names or Emojis
-        Long-press on tabs
-          Rename tab
-          Delete tab
-          Change tab background colour
-              Tab Examples
-                Home
-                Archive
-                Work
-                Training
-                Admin
-                Reading Order
-                Shopping List
-                Packing List
-                Holiday Itiary
-                Weekly Recurring
-                Monthly Recurring
-                Birthdays
-                Upcoming Bills
-
-    Ordering
-      Manual Ordering
-      Drag and drop tasks
-      Save custom order
-      Custom order persists after app restart
-      Automatic Sorting
-      Sort by Importance
-      Sort by Time
-      Sort by Priority Score
-
-    Filters button
-      Manual Order
-      Sort by Importance
-      Sort by Time
-      Sort by Priority Score, Priority Score = (Importance × Urgency) ÷ Effort
-      Quick Wins
-      Due Today
-      Due Next 7 Days
-
-    Settings button
-        An area for other future options, backup and import, colour/dark mode switch, version numbers etc.
-
-    Data Storage
-      Local Storage
-      IndexedDB
-      No backend
-      No account required
-      No cloud sync
-      
-    Data stored entirely on device.
-    
-    User Interface
-        Mobile First Design
-        Android friendly
-        Responsive layout
-        Large touch targets
-        Appearance
-        Modern Material Design styling
-        Rounded cards
-        Smooth animations
-        Floating Add Task button
-        Dark Mode (Buttom hidden in settings)
-    
-    Notifications
-        Due date reminders
-        Data and time set reminders
-    
-    Progressive Web App (PWA)
-      Installation
-      Hosted on GitHub Pages
-      Installable from Chrome
-      Runs like an app
-      Home screen icon
-      PWA Components
-      manifest.json
-      service-worker.js
-      custom 192x192 and 512x512 icons
-
----
-
-## Feature Implementation Tracker & Roadmap
-
-### Summary Status
-
-| Status | Count | Description |
-|---|---|---|
-| ✅ **Implemented** | 29 | Fully functional in the app |
-| 🟡 **Partially Implemented** | 3 | Partially functional or differing from spec |
-| ⏳ **Left to Implement** | 12 | Planned / remaining to implement |
-| **Total Features** | **44** | **~66% Complete** |
-
----
-
-### Detailed Breakdown
-
-#### 1. Tasks
-- [x] **Add task button (+) with task list**: FAB button opens task creation dialog, persists to IndexedDB, renders responsive cards in the list.
-- [x] **Long-press on task**: Long-press (520ms hold) opens the bottom action sheet on touch and pointer devices.
-- [x] **Edit task**: Edit action opens task dialog pre-populated with current values and updates record.
-- [x] **Delete task**: Confirmation modal prevents accidental deletion; removes task from IndexedDB.
-- [x] **Mark task as complete**: Checkbox button on card and action sheet toggles complete state with visual line-through and timestamp-ready state.
-- [x] **Move task (Moves to different tab)**: Direct "Move task" action in the task action sheet opens a destination tab picker to move tasks immediately between existing tabs.
-- [-] **Archive completed tasks (Moves to archive tab)**: *Partially Implemented* — "Archive" tab automatically isolates completed tasks; a batch "Archive all completed" button is pending.
-- [x] **Make task a subheading, bold text, useful for a holiday itinerary (no longer an actual task)**: Subheading toggle in task dialog and long-press action sheet renders bold section headers without checkbox or priority metadata chips; reorderable with drag-and-drop.
-- [x] **Set Reminder (Notification)**: Web Notifications API integration with timed alerts, synthesized gentle audio chimes, in-app toast alerts, quick presets (+1h, +3h, tomorrow 9 AM, due date 9 AM), and settings controls.
-
-#### 2. Task Fields (Options when adding a task)
-- [x] **Task name**: Text input with 120 character limit and required validation.
-- [x] **Importance rating (1-5)**: Interactive slider (1 to 5) with live preview badge.
-- [-] **Estimated time/effort**: *Partially Implemented* — Currently configured in hours (0.25h increments); spec calls for minutes (`im minutes`).
-- [x] **Due date**: HTML5 date picker with overdue indicator styling.
-- [x] **Tab category**: Category select dropdown linking task to user-defined tabs or Uncategorized.
-- [ ] **Created date (created automatically)**: *Left to Implement* — Store ISO timestamp on task creation.
-- [ ] **Completed date (created when marked complete)**: *Left to Implement* — Store ISO timestamp when marked complete.
-
-#### 3. Tabs
-- [-] **User Defined, initially just 1 tab and a '+' button**: *Partially Implemented* — User-defined tabs with '+' works; currently defaults to seeding "Personal" and "Work" instead of just 1 initial tab.
-- [x] **Tabs can be names or Emojis**: Supports unicode emojis and text names in tab labels.
-- [x] **Long-press on tabs**: Long-pressing any tab opens Tab Options sheet with "Compact list" toggle, rename, and delete actions.
-- [x] **Compact list per tab**: Long-pressing any tab allows toggling "Compact list" for that specific tab, which hides importance, estimated time, and tab name chips, displaying only the task name on the list.
-- [x] **Rename tab**: Modifies category name and updates all assigned tasks.
-- [x] **Delete tab**: Confirmation dialog; reassigns associated tasks to uncategorized so no tasks are lost.
-- [ ] **Change tab background colour**: *Left to Implement* — Add color picker to assign individual accent colors to tabs.
-- [ ] **Tab Examples**: *Left to Implement* — Quick-add presets for Home, Work, Shopping List, Packing List, Holiday Itinerary, etc.
-
-#### 4. Ordering
-- [x] **Manual Ordering**: Preserves user's custom sort order using numeric sort positions.
-- [x] **Drag and drop tasks**: Smooth pointer drag-and-drop reordering with visual placeholder.
-- [x] **Save custom order**: Persists updated order positions directly to IndexedDB.
-- [x] **Custom order persists after app restart**: Re-queries saved positions on initial boot.
-- [x] **Automatic Sorting**: Supported via Sort & Filters bottom sheet.
-- [x] **Sort by Importance**: Descending sort by importance rating (1-5).
-- [x] **Sort by Time**: Ascending sort by estimated time.
-- [ ] **Sort by Priority Score**: *Left to Implement* — Priority formula `(Importance × Urgency) ÷ Effort`.
-
-#### 5. Filters button
-- [x] **Manual Order**: Option in Sort & Filters sheet.
-- [x] **Sort by Importance**: Option in Sort & Filters sheet.
-- [x] **Sort by Time**: Option in Sort & Filters sheet.
-- [ ] **Sort by Priority Score**: *Left to Implement* — Missing from filter options.
-- [x] **Quick Wins**: Filters high importance (4-5) and short time (<= 2h).
-- [x] **Due Today**: Dedicated filter for tasks scheduled for the current date.
-- [x] **Due Tomorrow**: Dedicated filter for tasks scheduled for tomorrow's date.
-- [x] **Due Next 7 Days**: Filter showing tasks due within the upcoming week.
-
-#### 6. Settings button
-- [x] **Settings button & modal**: Settings bottom sheet with dark mode segmented switch (System, Light, Dark), 6 Material Design colour theme palettes, local JSON backup export & restore, version information, and notification controls.
-
-#### 7. Data Storage
-- [x] **Local Storage / IndexedDB**: Full offline schema with `tasks`, `categories`, and `settings` stores.
-- [x] **No backend required**: Zero external database dependency; 100% client-side offline execution.
-- [x] **No account required for offline use**: Immediate use without sign-in.
-- [x] **Google Drive Cloud Backup & Restore**: Standard Google Sign-In button in Settings allowing users to connect their personal Google account to backup and restore their tasks, tabs, and settings directly via Google Drive.
-- [x] **Data stored entirely on device**: Local-first storage with optional user-controlled private cloud backup.
-
-#### 8. User Interface
-- [x] **Mobile First Design**: Optimized for single-hand mobile usage with bottom sheets.
-- [x] **Android friendly**: Material Design 3 tokens, viewport fit, safe areas, touch actions.
-- [x] **Responsive layout**: Adapts to desktop and tablet with centered container (max-width 760px).
-- [x] **Large touch targets**: All buttons, tabs, and list items have minimum 44px-48px touch targets.
-- [x] **Appearance**: Modern Material styling with rounded corners, subtle shadows, and ripple effects.
-- [x] **Dark Mode (Button hidden in settings)**: Fully functional dark/light/system theme switch relocated into the Settings pane.
-
-#### 9. Notifications
-- [x] **Due date reminders**: In-app toast alerts, polite Web Audio chime, and Web Notifications API alerts when tasks reach their scheduled time.
-- [x] **Date and time set reminders**: Custom date and time picker with preset buttons (+1 Hour, +3 Hours, Tomorrow 9 AM, Due Date 9 AM).
-
-#### 10. Progressive Web App (PWA)
-- [x] **Installation**: PWA installable via Chrome/Android prompts.
-- [x] **Hosted on GitHub Pages / Web server**: Served via Express on port 3000.
-- [x] **Installable from Chrome / Runs like an app / Home screen icon**: Manifest configured with `display: standalone`.
-- [x] **PWA Components**: Complete set of `manifest.json`, `sw.js` cache worker, and 192x192 / 512x512 icons.
-
+## Key Features
+1. **Category Tabs**:
+   - Fresh install starts clean without default seeded tabs (Personal and Work removed).
+   - "All", "Archive", and custom user-defined tabs with names and emojis.
+   - Tab customization: 12 accent colors, compact list mode, "Hide from All" toggle, tab reordering.
+2. **Tasks & Subheadings**:
+   - Task name, importance rating (1-5), estimated hours, due dates with overdue detection.
+   - Section subheadings (dividers) for itineraries and long lists.
+   - Recurrence rules: Daily, Weekdays, Weekly, Biweekly, Monthly.
+   - Checklists / Subtasks: progress bar with completion percentage, collapsible view, and subtask-to-task conversion.
+   - Swipe gestures: Swipe right to complete, swipe left to delete.
+3. **Focus Timer**:
+   - 25m Pomodoro, 15m Sprint, 45m Deep, or Task Estimated duration.
+   - Circular SVG clock countdown with audio chimes and focus time logging.
+4. **Productivity Metrics**:
+   - Daily streak tracking, tasks completed today/week, focus minutes today, and category completion breakdown.
+5. **Bulk Paste**:
+   - Multi-line textarea to paste batches of items directly into any category tab.
+6. **Live Cloud Sync & Google Drive**:
+   - Real-time Firestore sync with local vs cloud task counter comparison.
+   - Timestamped backup JSON files directly in a dedicated `Lists` Google Drive folder.
+   - Offline-first local JSON file export/import.
