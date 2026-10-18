@@ -15,6 +15,17 @@ Lists allows users to plan tasks by importance, estimated duration, due dates, r
 - **Cloud Backup**: Google Drive REST API v3
 - **Audio & Alerts**: Web Audio API synthesizer chimes & Web Notifications API
 
+## Running and deploying
+
+Run the app locally with `npm install` followed by `npm run dev`. For a production
+build, run `npm run build`; the deployable files are written to `dist`.
+
+GitHub Pages deployments are built by the workflow in
+`.github/workflows/deploy.yml`. In the repository settings, set **Pages → Build
+and deployment → Source** to **GitHub Actions**. The source files in the
+repository root are not a deployable site on their own; the Vite build is
+required to compile the React and TypeScript entry point.
+
 ## Key Features
 1. **Category Tabs**:
    - Fresh install starts clean without default seeded tabs (Personal and Work removed).
