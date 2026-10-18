@@ -22,9 +22,9 @@ build, run `npm run build`; the deployable files are written to `dist`.
 
 GitHub Pages deployments are built by the workflow in
 `.github/workflows/deploy.yml`. In the repository settings, set **Pages → Build
-and deployment → Source** to **GitHub Actions**. The source files in the
-repository root are not a deployable site on their own; the Vite build is
-required to compile the React and TypeScript entry point.
+and deployment → Source** to **GitHub Actions**. The Vite build compiles the
+React and TypeScript entry point and copies the PWA manifest and icons from
+`public/`; serving the repository root directly will not work.
 
 ## Key Features
 1. **Category Tabs**:

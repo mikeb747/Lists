@@ -34,6 +34,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const hasDecidedAxisRef = useRef(false);
+  const activePointerIdRef = useRef<number | null>(null);
+  const swipeOffsetRef = useRef(0);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const SWIPE_THRESHOLD = 72;
@@ -144,7 +146,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   // Pointer swipe handlers
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (task.isSubheading) return;
+    if (task.isSubheading || !e.isPrimary || activePointerIdRef.current !== null) return;
     if (
       (e.target as HTMLElement).closest(
         'button, .drag-handle, .task-complete, .task-icon-btn, .subtask-check-btn'
@@ -152,13 +154,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     ) {
       return;
     }
+    activePointerIdRef.current = e.pointerId;
     startXRef.current = e.clientX;
     startYRef.current = e.clientY;
     hasDecidedAxisRef.current = false;
+    swipeOffsetRef.current = 0;
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (task.isSubheading || !cardRef.current) return;
+    if (
+      activePointerIdRef.current !== e.pointerId ||
+      task.isSubheading ||
+      !cardRef.current
+    ) {
+      return;
+    }
+    if (e.pointerType === 'mouse' && e.buttons === 0) {
+      handlePointerCancel(e);
+      return;
+    }
+
     const deltaX = e.clientX - startXRef.current;
     const deltaY = e.clientY - startYRef.current;
 
@@ -167,6 +183,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         hasDecidedAxisRef.current = true;
         if (Math.abs(deltaY) >= Math.abs(deltaX)) {
           setIsSwiping(false);
+          swipeOffsetRef.current = 0;
+          setSwipeOffset(0);
           return;
         }
         setIsSwiping(true);
@@ -179,17 +197,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         const excess = Math.abs(deltaX) - SWIPE_THRESHOLD;
         visualX = Math.sign(deltaX) * (SWIPE_THRESHOLD + excess * 0.35);
       }
+      swipeOffsetRef.current = visualX;
       setSwipeOffset(visualX);
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (activePointerIdRef.current !== e.pointerId) return;
+    activePointerIdRef.current = null;
     if (!isSwiping) {
+      swipeOffsetRef.current = 0;
       setSwipeOffset(0);
       return;
     }
     setIsSwiping(false);
-    const finalOffset = swipeOffset;
+    const finalOffset = swipeOffsetRef.current;
+    swipeOffsetRef.current = 0;
     setSwipeOffset(0);
 
     if (Math.abs(finalOffset) >= SWIPE_THRESHOLD) {
@@ -216,6 +239,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         });
       }
     }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent) => {
+    if (activePointerIdRef.current !== e.pointerId) return;
+    activePointerIdRef.current = null;
+    hasDecidedAxisRef.current = false;
+    swipeOffsetRef.current = 0;
+    setIsSwiping(false);
+    setSwipeOffset(0);
   };
 
   // Subheading Card
@@ -309,7 +341,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onClick={() => openTaskActions(task)}
       >
         <button
