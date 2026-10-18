@@ -17,11 +17,14 @@ export const BulkPasteSheet: React.FC = () => {
       : (categories[0]?.id ?? '')
   );
 
+  const [isKeyboardReady, setIsKeyboardReady] = useState(false);
+
   const sheetRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (bulkPasteSheetOpen) {
+      setIsKeyboardReady(false);
       // Explicitly blur any active input element so the Android virtual keyboard does not open automatically
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -31,6 +34,8 @@ export const BulkPasteSheet: React.FC = () => {
       }
       // Focus the sheet container itself instead of the text box
       sheetRef.current?.focus({ preventScroll: true });
+    } else {
+      setIsKeyboardReady(false);
     }
   }, [bulkPasteSheetOpen]);
 
@@ -127,6 +132,10 @@ export const BulkPasteSheet: React.FC = () => {
               className="bulk-textarea"
               rows={7}
               autoFocus={false}
+              readOnly={!isKeyboardReady}
+              onClick={() => setIsKeyboardReady(true)}
+              onTouchStart={() => setIsKeyboardReady(true)}
+              onFocus={() => setIsKeyboardReady(true)}
               placeholder={'Paste list of items here (separated by line breaks)\ne.g.\nChapter 1: The Beginning\nChapter 2: Deep Dive\nChapter 3: Conclusion'}
               aria-label="List of items separated by line breaks"
               value={text}

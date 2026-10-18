@@ -12,18 +12,26 @@
     <meta name="theme-color" content="#6750A4" />
     <meta name="color-scheme" content="light dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Planner" />
+    <meta name="apple-mobile-web-app-title" content="Lists" />
     <title>Lists</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/favicon.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <script>
+      // Self-heal: Clean up any stale/broken service workers or caches from earlier builds
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('./sw.js').then(function (reg) {
-            reg.update();
-          }).catch(function () {});
-        });
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            registrations[i].unregister();
+          }
+        }).catch(function () {});
+      }
+      if ('caches' in window) {
+        caches.keys().then(function (keys) {
+          for (var i = 0; i < keys.length; i++) {
+            caches.delete(keys[i]);
+          }
+        }).catch(function () {});
       }
     </script>
   </head>

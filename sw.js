@@ -1,4 +1,4 @@
-const CACHE_NAME = "lists-v17";
+const CACHE_NAME = "lists-v18";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -8,17 +8,13 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.map((key) => caches.delete(key)))
-    ).then(() => self.clients.claim())
+    ).then(() => self.registration.unregister())
+     .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-  // Always network first to ensure new code is immediately served
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
-  );
-});
+// Do not intercept fetch to ensure the browser always reaches the network directly
+// and never fails navigation requests with undefined responses.
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
