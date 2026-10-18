@@ -17,7 +17,15 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/favicon.png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.6.0" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('./sw.js').then(function (reg) {
+            reg.update();
+          }).catch(function () {});
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

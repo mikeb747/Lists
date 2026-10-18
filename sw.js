@@ -1,45 +1,22 @@
-const CACHE_NAME = "priority-planner-v16";
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./cloud-sync.js",
-  "./google-drive.js",
-  "./manifest.json",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/maskable_icon_x512.png",
-  "./icons/favicon.png",
-  "./icons/notification.png",
-];
+const CACHE_NAME = "lists-v17";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
+      Promise.all(keys.map((key) => caches.delete(key)))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Always network first to ensure new code is immediately served
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
 
@@ -50,7 +27,6 @@ self.addEventListener("notificationclick", (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      // Notify active windows of notification actions (complete, snooze_15, snooze_60)
       if (action && taskId) {
         for (const client of clientList) {
           client.postMessage({
@@ -60,8 +36,6 @@ self.addEventListener("notificationclick", (event) => {
           });
         }
       }
-
-      // If user clicked notification body or wants to view app
       if (!action || action === "view") {
         for (const client of clientList) {
           if ("focus" in client) return client.focus();
@@ -71,4 +45,3 @@ self.addEventListener("notificationclick", (event) => {
     })
   );
 });
-

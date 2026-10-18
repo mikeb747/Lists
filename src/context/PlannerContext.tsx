@@ -360,9 +360,13 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSyncStatusMsg(`Live Synced at ${timeStr} ✓`);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, `users/${uid}/tasks`);
         setSyncStatus('error');
         setSyncStatusMsg(`Sync error: ${error.message}`);
+        try {
+          handleFirestoreError(error, OperationType.GET, `users/${uid}/tasks`);
+        } catch (e) {
+          console.warn('Tasks sync error:', e);
+        }
       }
     );
 
@@ -389,7 +393,13 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, `users/${uid}/categories`);
+        setSyncStatus('error');
+        setSyncStatusMsg(`Sync error: ${error.message}`);
+        try {
+          handleFirestoreError(error, OperationType.GET, `users/${uid}/categories`);
+        } catch (e) {
+          console.warn('Categories sync error:', e);
+        }
       }
     );
 
@@ -408,7 +418,11 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, `users/${uid}/settings/prefs`);
+        try {
+          handleFirestoreError(error, OperationType.GET, `users/${uid}/settings/prefs`);
+        } catch (e) {
+          console.warn('Settings sync error:', e);
+        }
       }
     );
 

@@ -121,19 +121,21 @@ export const TaskList: React.FC = () => {
   }, [filtered.length, settings.activeTab, settings.sortMode, settings.hideCompleted]);
 
   useEffect(() => {
-    if (!listRef.current) return;
-    const ro = new ResizeObserver(() => {
-      if (filtered.length === 0) {
-        setIsFullPage(false);
-        return;
-      }
-      const docHeight = document.documentElement.scrollHeight;
-      const viewHeight = window.innerHeight;
-      setIsFullPage(docHeight > viewHeight + 30);
-    });
-    ro.observe(listRef.current);
-    if (document.body) ro.observe(document.body);
-    return () => ro.disconnect();
+    if (!listRef.current || typeof ResizeObserver === 'undefined') return;
+    try {
+      const ro = new ResizeObserver(() => {
+        if (filtered.length === 0) {
+          setIsFullPage(false);
+          return;
+        }
+        const docHeight = document.documentElement?.scrollHeight || 0;
+        const viewHeight = window.innerHeight || 0;
+        setIsFullPage(docHeight > viewHeight + 30);
+      });
+      ro.observe(listRef.current);
+      if (document.body) ro.observe(document.body);
+      return () => ro.disconnect();
+    } catch (_) {}
   }, [filtered.length]);
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
