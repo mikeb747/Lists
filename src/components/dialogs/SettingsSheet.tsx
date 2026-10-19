@@ -332,7 +332,9 @@ export const SettingsSheet: React.FC = () => {
                   {t1} ms
                 </span>
               </div>
-              <p className="timer-setting-hint">Hold a category tab this long to lift it and drag to reorder.</p>
+              <p className="timer-setting-hint">
+                Briefly hold a category tab for this duration to start dragging it to a new position.
+              </p>
               <input
                 type="range"
                 id="input-timer1"
@@ -431,7 +433,9 @@ export const SettingsSheet: React.FC = () => {
           {/* Data Storage */}
           <div className="settings-group">
             <label className="settings-label">Data Storage</label>
-            <p className="settings-hint">Data is stored locally on this device in browser IndexedDB.</p>
+            <p className="settings-hint">
+              Data is stored locally in browser IndexedDB. Export or import a JSON backup manually.
+            </p>
             <div className="settings-actions-row">
               <button
                 type="button"

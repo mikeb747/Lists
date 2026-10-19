@@ -76,7 +76,7 @@ interface PlannerContextType {
   showToast: (msg: string) => void;
 
   // CRUD
-  addTask: (data: Partial<Task>) => Promise<void>;
+  addTask: (data: Partial<Task>) => Promise<boolean>;
   updateTask: (task: Task) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   toggleComplete: (task: Task) => Promise<void>;
@@ -332,6 +332,121 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     let initialTasks = false;
     let initialCats = false;
+    let initialMergeStarted = false;
+    let initialMergeCompleted = false;
+    let initialRemoteTasks: Task[] = [];
+    let initialRemoteCategories: Category[] = [];
+
+    const mergeInitialLocalData = async () => {
+      if (!initialTasks || !initialCats || initialMergeStarted) return;
+      initialMergeStarted = true;
+
+      try {
+        const [localTasks, localCategories] = await Promise.all([
+          dbService.getAllTasks(),
+          dbService.getAllCategories(),
+        ]);
+        const remoteCategories = [...initialRemoteCategories].sort(
+          (a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0)
+        );
+        const categoryIdMap = new Map<string, string>();
+        const categoriesByName = new Map<string, Category>();
+        const mergedCategories: Category[] = [];
+        let nextCategoryPosition =
+          remoteCategories.reduce((max, category) => Math.max(max, category.sortPosition ?? -1), -1) +
+          1;
+
+        for (const category of remoteCategories) {
+          const nameKey = category.name.trim().toLowerCase();
+          const existing = categoriesByName.get(nameKey);
+          if (existing) {
+            categoryIdMap.set(category.id, existing.id);
+            continue;
+          }
+          categoriesByName.set(nameKey, category);
+          categoryIdMap.set(category.id, category.id);
+          mergedCategories.push(category);
+        }
+
+        const duplicateRemoteCategoryIds = remoteCategories
+          .filter((category) => categoryIdMap.get(category.id) !== category.id)
+          .map((category) => category.id);
+
+        for (const category of localCategories) {
+          const nameKey = category.name.trim().toLowerCase();
+          const cloudCategory = categoriesByName.get(nameKey);
+          if (cloudCategory) {
+            categoryIdMap.set(category.id, cloudCategory.id);
+            continue;
+          }
+          const mergedCategory = {
+            ...category,
+            sortPosition: nextCategoryPosition++,
+          };
+          categoriesByName.set(nameKey, mergedCategory);
+          categoryIdMap.set(category.id, category.id);
+          mergedCategories.push(mergedCategory);
+        }
+
+        const remoteTaskIds = new Set(initialRemoteTasks.map((task) => task.id));
+        const mergedTasks: Task[] = initialRemoteTasks.map((task) => {
+          const categoryId = task.categoryId ? categoryIdMap.get(task.categoryId) : undefined;
+          return categoryId && categoryId !== task.categoryId
+            ? { ...task, categoryId }
+            : task;
+        });
+        let nextSortPosition = mergedTasks.reduce(
+          (max, task) => Math.max(max, task.sortPosition ?? 0),
+          -1
+        ) + 1;
+        const localOnlyTasks = localTasks
+          .filter((task) => !remoteTaskIds.has(task.id))
+          .sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0))
+          .map((task) => ({
+            ...task,
+            categoryId: task.categoryId
+              ? categoryIdMap.get(task.categoryId) || task.categoryId
+              : '',
+            sortPosition: nextSortPosition++,
+          }));
+        mergedTasks.push(...localOnlyTasks);
+
+        isApplyingRemoteRef.current = true;
+        setCategories(mergedCategories);
+        setTasks(mergedTasks);
+        for (const category of mergedCategories) await dbService.putCategory(category);
+        for (const task of mergedTasks) await dbService.putTask(task);
+        isApplyingRemoteRef.current = false;
+
+        for (const categoryId of duplicateRemoteCategoryIds) {
+          await deleteCategoryFromCloud(categoryId, uid);
+        }
+        for (const category of mergedCategories) {
+          if (!remoteCategories.some((remote) => remote.id === category.id)) {
+            await pushCategoryToCloud(category, uid);
+          }
+        }
+        for (const task of [...mergedTasks]) {
+          const remoteTask = initialRemoteTasks.find((remote) => remote.id === task.id);
+          if (
+            !remoteTask ||
+            remoteTask.categoryId !== task.categoryId ||
+            task.sortPosition !== remoteTask.sortPosition
+          ) {
+            await pushTaskToCloud(task, uid);
+          }
+        }
+        initialMergeCompleted = true;
+      } catch (error) {
+        isApplyingRemoteRef.current = false;
+        initialMergeStarted = false;
+        console.error('Failed to merge local data with cloud data:', error);
+        setSyncStatus('error');
+        setSyncStatusMsg(
+          `Cloud merge error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    };
 
     const unsubTasks = onSnapshot(
       tasksRef,
@@ -344,9 +459,12 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         const isFirst = !initialTasks;
         initialTasks = true;
+        initialRemoteTasks = remoteTasks;
         setLastCloudTaskCount(remoteTasks.length);
 
-        if (!hasPending || isFirst) {
+        if (!initialMergeCompleted) {
+          await mergeInitialLocalData();
+        } else if (!hasPending || isFirst) {
           isApplyingRemoteRef.current = true;
           setTasks(remoteTasks);
           for (const t of remoteTasks) {
@@ -381,13 +499,86 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         const isFirst = !initialCats;
         initialCats = true;
+        initialRemoteCategories = remoteCats;
 
-        if (!hasPending || isFirst) {
-          isApplyingRemoteRef.current = true;
+        if (!initialMergeCompleted) {
+          await mergeInitialLocalData();
+        } else if (!hasPending || isFirst) {
           const sorted = remoteCats.sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0));
-          setCategories(sorted);
-          for (const c of sorted) {
-            await dbService.putCategory(c);
+          const categoriesByName = new Map<string, Category>();
+          const categoryIdMap = new Map<string, string>();
+          const uniqueCategories: Category[] = [];
+
+          for (const category of sorted) {
+            const nameKey = category.name.trim().toLowerCase();
+            const existing = categoriesByName.get(nameKey);
+            if (existing) {
+              categoryIdMap.set(category.id, existing.id);
+            } else {
+              categoriesByName.set(nameKey, category);
+              categoryIdMap.set(category.id, category.id);
+              uniqueCategories.push(category);
+            }
+          }
+          const duplicateCategoryIds = new Set(
+            sorted
+              .filter((category) => categoryIdMap.get(category.id) !== category.id)
+              .map((category) => category.id)
+          );
+
+          isApplyingRemoteRef.current = true;
+          setCategories(uniqueCategories);
+          for (const category of uniqueCategories) await dbService.putCategory(category);
+
+          if (duplicateCategoryIds.size > 0) {
+            const localTasks = await dbService.getAllTasks();
+            const existingTasksById = new Map(localTasks.map((task) => [task.id, task]));
+            const lastPositionByCategory = new Map<string, number>();
+            for (const task of localTasks) {
+              if (!duplicateCategoryIds.has(task.categoryId)) {
+                lastPositionByCategory.set(
+                  task.categoryId,
+                  Math.max(lastPositionByCategory.get(task.categoryId) ?? -1, task.sortPosition ?? -1)
+                );
+              }
+            }
+            const movedTasks = localTasks
+              .filter((task) => duplicateCategoryIds.has(task.categoryId))
+              .sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0));
+            const movedTaskIds = new Set(movedTasks.map((task) => task.id));
+            const remappedTasks = localTasks.map((task) => {
+              const categoryId = categoryIdMap.get(task.categoryId) || task.categoryId;
+              if (!duplicateCategoryIds.has(task.categoryId)) {
+                return categoryId === task.categoryId ? task : { ...task, categoryId };
+              }
+              const nextPosition = (lastPositionByCategory.get(categoryId) ?? -1) + 1;
+              lastPositionByCategory.set(categoryId, nextPosition);
+              return { ...task, categoryId, sortPosition: nextPosition };
+            });
+
+            setTasks(remappedTasks);
+            for (const task of remappedTasks) {
+              if (
+                movedTaskIds.has(task.id) ||
+                existingTasksById.get(task.id)?.categoryId !== task.categoryId
+              ) {
+                await dbService.putTask(task);
+              }
+            }
+            setSettings((prev) => {
+              const activeTab = categoryIdMap.get(prev.activeTab) || prev.activeTab;
+              if (activeTab === prev.activeTab) return prev;
+              const updated = { ...prev, activeTab };
+              dbService.saveSettings(updated);
+              pushSettingsToCloud(updated, uid);
+              return updated;
+            });
+            for (const categoryId of duplicateCategoryIds) {
+              await deleteCategoryFromCloud(categoryId, uid);
+            }
+            for (const task of remappedTasks) {
+              if (movedTaskIds.has(task.id)) await pushTaskToCloud(task, uid);
+            }
           }
           isApplyingRemoteRef.current = false;
         }
@@ -493,10 +684,16 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // CRUD Operations
   const addTask = useCallback(
     async (data: Partial<Task>) => {
+      const name = data.name?.trim() || '';
+      const nameKey = name.toLowerCase();
+      if (nameKey && tasks.some((task) => task.name.trim().toLowerCase() === nameKey)) {
+        showToast(`A task named “${name}” already exists`);
+        return false;
+      }
       const maxSort = tasks.reduce((max, t) => Math.max(max, t.sortPosition || 0), 0);
       const newTask: Task = {
         id: crypto.randomUUID(),
-        name: data.name || '',
+        name,
         importance: data.importance || 3,
         estimatedTime: data.estimatedTime !== undefined ? data.estimatedTime : 1,
         dueDate: data.dueDate || '',
@@ -518,6 +715,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         pushTaskToCloud(newTask, cloudUser.uid);
       }
       showToast('Task added');
+      return true;
     },
     [tasks, cloudUser, showToast]
   );
@@ -599,9 +797,13 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const reorderTasks = useCallback(
     async (newTasks: Task[]) => {
-      setTasks(newTasks);
-      for (let i = 0; i < newTasks.length; i++) {
-        const t = { ...newTasks[i], sortPosition: i, updatedAt: new Date().toISOString() };
+      const reorderedTasks = newTasks.map((task, index) => ({
+        ...task,
+        sortPosition: index,
+        updatedAt: new Date().toISOString(),
+      }));
+      setTasks(reorderedTasks);
+      for (const t of reorderedTasks) {
         await dbService.putTask(t);
         if (cloudUser && !isApplyingRemoteRef.current) {
           pushTaskToCloud(t, cloudUser.uid);
@@ -632,10 +834,23 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     async (task: Task) => {
       if (!task.subtasks || task.subtasks.length === 0) return;
       const subtasks = [...task.subtasks];
+      const existingNames = new Set(tasks.map((item) => item.name.trim().toLowerCase()));
+      const tasksToCreate = subtasks.filter((subtask) => {
+        const nameKey = subtask.title.trim().toLowerCase();
+        if (existingNames.has(nameKey)) return false;
+        existingNames.add(nameKey);
+        return true;
+      });
+      const taskNamesToCreate = new Set(tasksToCreate.map((subtask) => subtask.id));
+      const skippedCount = subtasks.length - tasksToCreate.length;
+      if (!tasksToCreate.length) {
+        showToast('No tasks created because those names already exist');
+        return;
+      }
       let maxSort = tasks.reduce((max, t) => Math.max(max, t.sortPosition || 0), 0);
 
       const created: Task[] = [];
-      for (const s of subtasks) {
+      for (const s of tasksToCreate) {
         maxSort++;
         const nt: Task = {
           id: crypto.randomUUID(),
@@ -657,14 +872,18 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const clearedTask: Task = {
         ...task,
-        subtasks: [],
+        subtasks: subtasks.filter((subtask) => !taskNamesToCreate.has(subtask.id)),
         updatedAt: new Date().toISOString(),
       };
       await dbService.putTask(clearedTask);
       if (cloudUser) pushTaskToCloud(clearedTask, cloudUser.uid);
 
       setTasks((prev) => [...prev.map((t) => (t.id === task.id ? clearedTask : t)), ...created]);
-      showToast(`Converted ${subtasks.length} subtasks into tasks`);
+      showToast(
+        skippedCount
+          ? `Converted ${created.length} subtasks; kept ${skippedCount} duplicate${skippedCount === 1 ? '' : 's'}`
+          : `Converted ${created.length} subtasks into tasks`
+      );
     },
     [tasks, cloudUser, showToast]
   );
@@ -758,9 +977,13 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!validLines.length) return 0;
 
       let maxSort = tasks.reduce((max, t) => Math.max(max, t.sortPosition || 0), 0);
+      const existingNames = new Set(tasks.map((task) => task.name.trim().toLowerCase()));
       const newTasks: Task[] = [];
 
       for (const line of validLines) {
+        const nameKey = line.toLowerCase();
+        if (existingNames.has(nameKey)) continue;
+        existingNames.add(nameKey);
         maxSort++;
         const t: Task = {
           id: crypto.randomUUID(),
@@ -780,7 +1003,12 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       setTasks((prev) => [...prev, ...newTasks]);
-      showToast(`Added ${newTasks.length} tasks`);
+      const skipped = validLines.length - newTasks.length;
+      showToast(
+        skipped
+          ? `Added ${newTasks.length} tasks; skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}`
+          : `Added ${newTasks.length} tasks`
+      );
       return newTasks.length;
     },
     [tasks, cloudUser, showToast]
@@ -872,7 +1100,15 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lists-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const now = new Date();
+    const timestamp = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+      String(now.getHours()).padStart(2, '0'),
+      String(now.getMinutes()).padStart(2, '0'),
+    ].join('');
+    a.download = `lists-bak-${timestamp}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('Exported backup file');

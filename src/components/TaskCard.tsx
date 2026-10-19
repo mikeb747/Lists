@@ -8,6 +8,10 @@ interface TaskCardProps {
   isCompact?: boolean;
   manualOrder?: boolean;
   isArchive?: boolean;
+  isDragging?: boolean;
+  onReorderStart?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onReorderMove?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onReorderEnd?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -16,6 +20,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isCompact = false,
   manualOrder = true,
   isArchive = false,
+  isDragging = false,
+  onReorderStart,
+  onReorderMove,
+  onReorderEnd,
 }) => {
   const {
     settings,
@@ -255,7 +263,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     return (
       <div className="task-item-wrapper" data-id={task.id}>
         <article
-          className="task-card subheading"
+          className={`task-card subheading ${isDragging ? 'dragging' : ''}`}
           data-id={task.id}
           data-is-subheading="true"
           onClick={() => openTaskActions(task)}
@@ -266,6 +274,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             aria-label="Reorder"
             disabled={!manualOrder}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={onReorderStart}
+            onPointerMove={onReorderMove}
+            onPointerUp={onReorderEnd}
+            onPointerCancel={onReorderEnd}
           >
             <svg viewBox="0 0 24 24" width="20" height="20">
               <path
@@ -298,6 +310,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     isCompact ? 'compact' : '',
     !isCompact || isArchive ? 'has-controls' : '',
     isSwiping ? 'swiping' : '',
+    isDragging ? 'dragging' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -350,6 +363,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           aria-label="Reorder"
           disabled={!manualOrder}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={onReorderStart}
+          onPointerMove={onReorderMove}
+          onPointerUp={onReorderEnd}
+          onPointerCancel={onReorderEnd}
         >
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path

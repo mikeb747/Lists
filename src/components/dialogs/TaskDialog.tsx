@@ -134,7 +134,7 @@ export const TaskDialog: React.FC = () => {
         subtasks: isSubheading ? [] : subtasks,
       });
     } else {
-      await addTask({
+      const added = await addTask({
         name: trimmedName,
         isSubheading,
         importance: isSubheading ? 3 : importance,
@@ -145,6 +145,7 @@ export const TaskDialog: React.FC = () => {
         reminderAt: isSubheading ? '' : reminderAt,
         subtasks: isSubheading ? [] : subtasks,
       });
+      if (!added) return;
     }
     closeTaskDialog();
   };

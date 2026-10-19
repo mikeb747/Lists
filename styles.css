@@ -537,8 +537,8 @@ html[data-theme="dark"] .tab[data-tab="archive"]:not(.active) {
 }
 
 .tabs.dragging-tab-mode {
-  overflow: hidden !important;
-  overflow-x: hidden !important;
+  overflow-x: auto !important;
+  scroll-behavior: auto !important;
   touch-action: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
@@ -556,6 +556,12 @@ body.dragging-tab-mode {
   user-select: none !important;
   -webkit-user-select: none !important;
   overscroll-behavior: none !important;
+}
+
+body.dragging-task-mode {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* While dragging, the tab itself remains in DOM as the landing slot */
@@ -1691,6 +1697,16 @@ html[data-theme="dark"] .task-card[data-card-color="importance-2"] {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
+}
+
+#task-form .dialog-actions {
+  position: sticky;
+  bottom: calc(-24px - var(--safe-bottom));
+  z-index: 3;
+  margin: 8px -20px calc(-16px - var(--safe-bottom));
+  padding: 12px 20px calc(16px + var(--safe-bottom));
+  background: var(--md-surface);
+  border-top: 1px solid var(--md-outline-variant);
 }
 
 .btn-text,
