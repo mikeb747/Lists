@@ -81,6 +81,15 @@ service cloud.firestore {
         allow delete: if isOwner(userId) && isValidId(categoryId);
       }
 
+      match /categoryDeletions/{categoryId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          isValidId(categoryId) &&
+          incoming().categoryId == categoryId &&
+          incoming().deletedAt is string &&
+          incoming().deletedAt.size() <= 64;
+      }
+
       match /settings/{settingId} {
         allow get, list: if isOwner(userId);
         allow create, update: if isOwner(userId) && isValidId(settingId) && isValidSettings(incoming());

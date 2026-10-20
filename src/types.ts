@@ -56,6 +56,13 @@ export interface Category {
   updatedAt?: string;
 }
 
+export interface CategoryDeletion {
+  id: string;
+  categoryId: string;
+  userId: string | null;
+  deletedAt: string;
+}
+
 export interface Settings {
   sortMode: SortMode;
   hideCompleted: boolean;

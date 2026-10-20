@@ -1,7 +1,7 @@
-import { Task, Category, Settings } from '../types';
+import { Task, Category, CategoryDeletion, Settings } from '../types';
 
 const DB_NAME = 'priority-planner';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -21,6 +21,9 @@ export function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('categoryDeletions')) {
+        db.createObjectStore('categoryDeletions', { keyPath: 'id' });
       }
     };
 
@@ -73,6 +76,18 @@ export async function deleteCategory(id: string): Promise<void> {
   const db = await openDb();
   const tx = db.transaction('categories', 'readwrite');
   await reqToPromise(tx.objectStore('categories').delete(id));
+}
+
+export async function getAllCategoryDeletions(): Promise<CategoryDeletion[]> {
+  const db = await openDb();
+  const tx = db.transaction('categoryDeletions', 'readonly');
+  return reqToPromise(tx.objectStore('categoryDeletions').getAll());
+}
+
+export async function putCategoryDeletion(deletion: CategoryDeletion): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction('categoryDeletions', 'readwrite');
+  await reqToPromise(tx.objectStore('categoryDeletions').put(deletion));
 }
 
 export async function getSettings(): Promise<Partial<Settings> | null> {

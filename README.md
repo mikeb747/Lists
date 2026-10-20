@@ -11,6 +11,7 @@ Lists allows users to plan tasks by importance, estimated duration, due dates, r
 - **Styling**: Material Design 3 CSS custom properties with 16 color themes + Light/Dark/System modes
 - **Local Persistence**: IndexedDB (`priority-planner`)
 - **Cloud Database**: Firebase Firestore with real-time `onSnapshot` subscriptions
+- **Category deletions**: locally persisted deletion records sync to Firestore and remain there to prevent offline tabs from reappearing
 - **Authentication**: Firebase Google Auth with popup
 - **Manual Backup**: JSON file export and import
 
@@ -18,6 +19,8 @@ Lists allows users to plan tasks by importance, estimated duration, due dates, r
 
 Run the app locally with `npm install` followed by `npm run dev`. For a production
 build, run `npm run build`; the deployable files are written to `dist`.
+Deploy `firestore.rules` when enabling category-deletion sync so signed-in clients can
+read and write the `categoryDeletions` collection.
 
 GitHub Pages deployments are built by the workflow in
 `.github/workflows/deploy.yml`. In the repository settings, set **Pages → Build

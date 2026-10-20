@@ -21,7 +21,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Task, Category, Settings, CloudSyncStatus } from '../types';
+import { Task, Category, CategoryDeletion, Settings, CloudSyncStatus } from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -150,6 +150,24 @@ export async function deleteCategoryFromCloud(categoryId: string, userId: string
   }
 }
 
+export async function pushCategoryDeletionToCloud(
+  deletion: CategoryDeletion,
+  userId: string
+): Promise<void> {
+  if (!userId) return;
+  const path = `users/${userId}/categoryDeletions/${deletion.categoryId}`;
+  try {
+    const deletionRef = doc(db, 'users', userId, 'categoryDeletions', deletion.categoryId);
+    await setDoc(
+      deletionRef,
+      { categoryId: deletion.categoryId, deletedAt: deletion.deletedAt },
+      { merge: true }
+    );
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
 export async function pushSettingsToCloud(settings: Settings, userId: string): Promise<void> {
   if (!userId) return;
   const path = `users/${userId}/settings/prefs`;
@@ -168,6 +186,7 @@ export async function pushSettingsToCloud(settings: Settings, userId: string): P
 export async function fetchCloudData(userId: string): Promise<{
   tasks: Task[];
   categories: Category[];
+  categoryDeletions: CategoryDeletion[];
   settings: Partial<Settings> | null;
 }> {
   try {
@@ -177,10 +196,24 @@ export async function fetchCloudData(userId: string): Promise<{
       tasks.push({ id: docSnap.id, ...docSnap.data() } as Task);
     });
 
+    const deletionsSnap = await getDocs(collection(db, 'users', userId, 'categoryDeletions'));
+    const categoryDeletions: CategoryDeletion[] = [];
+    deletionsSnap.forEach((docSnap) => {
+      categoryDeletions.push({
+        id: `${userId}:${docSnap.id}`,
+        categoryId: docSnap.id,
+        userId,
+        deletedAt: String(docSnap.data().deletedAt || ''),
+      });
+    });
+    const deletedCategoryIds = new Set(categoryDeletions.map((deletion) => deletion.categoryId));
+
     const catsSnap = await getDocs(collection(db, 'users', userId, 'categories'));
     const categories: Category[] = [];
     catsSnap.forEach((docSnap) => {
-      categories.push({ id: docSnap.id, ...docSnap.data() } as Category);
+      if (!deletedCategoryIds.has(docSnap.id)) {
+        categories.push({ id: docSnap.id, ...docSnap.data() } as Category);
+      }
     });
 
     let settings: Partial<Settings> | null = null;
@@ -191,7 +224,7 @@ export async function fetchCloudData(userId: string): Promise<{
       }
     } catch (_) {}
 
-    return { tasks, categories, settings };
+    return { tasks, categories, categoryDeletions, settings };
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, `users/${userId}`);
     throw err;
@@ -206,6 +239,8 @@ export async function pushAllToCloud(
 ): Promise<void> {
   if (!userId) return;
   const nowIso = new Date().toISOString();
+  const deletionsSnap = await getDocs(collection(db, 'users', userId, 'categoryDeletions'));
+  const deletedCategoryIds = new Set(deletionsSnap.docs.map((deletion) => deletion.id));
   let batch = writeBatch(db);
   let opCount = 0;
 
@@ -221,6 +256,7 @@ export async function pushAllToCloud(
   }
 
   for (const cat of categories) {
+    if (deletedCategoryIds.has(cat.id)) continue;
     if (opCount >= 450) {
       await batch.commit();
       batch = writeBatch(db);
@@ -259,6 +295,8 @@ export async function overwriteCloudWithLocal(
 ): Promise<void> {
   if (!userId) throw new Error('Not connected to Cloud Sync');
   const nowIso = new Date().toISOString();
+  const deletionsSnap = await getDocs(collection(db, 'users', userId, 'categoryDeletions'));
+  const deletedCategoryIds = new Set(deletionsSnap.docs.map((deletion) => deletion.id));
 
   // Find existing remote tasks to delete obsolete
   const existingSnap = await getDocs(collection(db, 'users', userId, 'tasks'));
@@ -286,6 +324,7 @@ export async function overwriteCloudWithLocal(
   }
 
   for (const cat of categories) {
+    if (deletedCategoryIds.has(cat.id)) continue;
     if (opCount >= 450) {
       await batch.commit();
       batch = writeBatch(db);

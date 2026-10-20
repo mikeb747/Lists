@@ -1,7 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
-import { Task, Category, Settings, SortMode, CloudSyncStatus } from '../types';
+import {
+  Task,
+  Category,
+  CategoryDeletion,
+  Settings,
+  SortMode,
+  CloudSyncStatus,
+} from '../types';
 import * as dbService from '../services/db';
 import {
   auth,
@@ -12,6 +19,7 @@ import {
   deleteTaskFromCloud,
   pushCategoryToCloud,
   deleteCategoryFromCloud,
+  pushCategoryDeletionToCloud,
   pushSettingsToCloud,
   pushAllToCloud,
   overwriteCloudWithLocal,
@@ -63,6 +71,15 @@ function migrateTaskEstimatedTime(task: Task): Task {
     estimatedTime: Math.round((Number.isFinite(hours) ? hours : 1) * 60),
     estimatedTimeUnit: 'minutes',
   };
+}
+
+async function uploadPendingCategoryDeletions(userId: string): Promise<void> {
+  const deletions = await dbService.getAllCategoryDeletions();
+  for (const deletion of deletions) {
+    if (deletion.userId !== userId) continue;
+    await pushCategoryDeletionToCloud(deletion, userId);
+    await deleteCategoryFromCloud(deletion.categoryId, userId);
+  }
 }
 
 export interface ConfirmDialogOptions {
@@ -344,28 +361,112 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const tasksRef = collection(db, 'users', uid, 'tasks');
     const categoriesRef = collection(db, 'users', uid, 'categories');
+    const categoryDeletionsRef = collection(db, 'users', uid, 'categoryDeletions');
     const settingsDocRef = doc(db, 'users', uid, 'settings', 'prefs');
 
     let initialTasks = false;
     let initialCats = false;
+    let initialDeletions = false;
     let initialMergeStarted = false;
     let initialMergeCompleted = false;
     let initialRemoteTasks: Task[] = [];
     let initialRemoteCategories: Category[] = [];
+    const deletedCategoryIds = new Set<string>();
+    const confirmedDeletionIds = new Set<string>();
+    const deletionSyncInProgress = new Map<string, Promise<void>>();
+    const cloudCategoryDeleteAttempts = new Set<string>();
+
+    const deleteCloudCategoryForTombstone = async (categoryId: string) => {
+      if (cloudCategoryDeleteAttempts.has(categoryId)) return;
+      cloudCategoryDeleteAttempts.add(categoryId);
+      try {
+        await deleteCategoryFromCloud(categoryId, uid);
+      } catch (error) {
+        cloudCategoryDeleteAttempts.delete(categoryId);
+        throw error;
+      }
+    };
+
+    const removeDeletedLocalCategories = async (
+      categoryIds: Iterable<string>,
+      syncSettings = true
+    ) => {
+      const ids = new Set(categoryIds);
+      if (ids.size === 0) return;
+      for (const categoryId of ids) await dbService.deleteCategory(categoryId);
+      setCategories((prev) => prev.filter((category) => !ids.has(category.id)));
+      setSettings((prev) => {
+        if (!ids.has(prev.activeTab)) return prev;
+        const next = { ...prev, activeTab: 'all', updatedAt: new Date().toISOString() };
+        const saveSettings = async () => {
+          await dbService.saveSettings(next);
+          if (syncSettings) await pushSettingsToCloud(next, uid);
+        };
+        void saveSettings().catch((error) => {
+          console.error('Failed to update settings after category deletion:', error);
+          setSyncStatus('error');
+          setSyncStatusMsg(
+            `Settings sync failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        });
+        return next;
+      });
+    };
+
+    const syncCategoryDeletion = (deletion: CategoryDeletion): Promise<void> => {
+      const existingSync = deletionSyncInProgress.get(deletion.categoryId);
+      if (existingSync) return existingSync;
+
+      const syncPromise = (async () => {
+        await pushCategoryDeletionToCloud(deletion, uid);
+        deletedCategoryIds.add(deletion.categoryId);
+        confirmedDeletionIds.add(deletion.categoryId);
+        await removeDeletedLocalCategories([deletion.categoryId]);
+        await deleteCloudCategoryForTombstone(deletion.categoryId);
+      })();
+      deletionSyncInProgress.set(deletion.categoryId, syncPromise);
+      const clearSync = () => {
+        if (deletionSyncInProgress.get(deletion.categoryId) === syncPromise) {
+          deletionSyncInProgress.delete(deletion.categoryId);
+        }
+      };
+      void syncPromise.then(clearSync, clearSync);
+      return syncPromise;
+    };
+
+    const syncPendingCategoryDeletions = async () => {
+      const localDeletions = await dbService.getAllCategoryDeletions();
+      for (const deletion of localDeletions) {
+        if (deletion.userId === uid && !confirmedDeletionIds.has(deletion.categoryId)) {
+          await syncCategoryDeletion(deletion);
+        }
+      }
+    };
 
     const mergeInitialLocalData = async () => {
-      if (!initialTasks || !initialCats || initialMergeStarted) return;
+      if (!initialTasks || !initialCats || !initialDeletions || initialMergeStarted) return;
       initialMergeStarted = true;
 
       try {
-        const [localTasks, localCategories] = await Promise.all([
+        const [localTasks, allLocalCategories, localDeletions] = await Promise.all([
           dbService.getAllTasks(),
           dbService.getAllCategories(),
+          dbService.getAllCategoryDeletions(),
         ]);
         const normalizedLocalTasks = localTasks.map(migrateTaskEstimatedTime);
-        const remoteCategories = [...initialRemoteCategories].sort(
-          (a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0)
+        for (const deletion of localDeletions) {
+          if (deletion.userId === uid && !confirmedDeletionIds.has(deletion.categoryId)) {
+            await syncCategoryDeletion(deletion);
+          }
+        }
+        const localCategories = allLocalCategories.filter(
+          (category) => !deletedCategoryIds.has(category.id)
         );
+        const remoteCategories = initialRemoteCategories
+          .filter((category) => !deletedCategoryIds.has(category.id))
+          .sort(
+            (a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0)
+          );
         const categoryIdMap = new Map<string, string>();
         const categoriesByName = new Map<string, Category>();
         const mergedCategories: Category[] = [];
@@ -465,6 +566,63 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     };
 
+    const unsubDeletions = onSnapshot(
+      categoryDeletionsRef,
+      async (snapshot) => {
+        const cloudDeletions: CategoryDeletion[] = [];
+        const serverDeletions: CategoryDeletion[] = [];
+        snapshot.forEach((docSnap) => {
+          const categoryId = docSnap.id;
+          const deletion: CategoryDeletion = {
+            id: `${uid}:${categoryId}`,
+            categoryId,
+            userId: uid,
+            deletedAt: String(docSnap.data().deletedAt || new Date().toISOString()),
+          };
+          cloudDeletions.push(deletion);
+          deletedCategoryIds.add(categoryId);
+          if (!docSnap.metadata.hasPendingWrites) {
+            confirmedDeletionIds.add(categoryId);
+            serverDeletions.push(deletion);
+          }
+        });
+
+        for (const deletion of cloudDeletions) {
+          await dbService.putCategoryDeletion(deletion);
+        }
+        await removeDeletedLocalCategories(deletedCategoryIds, !snapshot.metadata.fromCache);
+
+        if (!snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites) {
+          try {
+            for (const deletion of serverDeletions) {
+              await deleteCloudCategoryForTombstone(deletion.categoryId);
+            }
+            await syncPendingCategoryDeletions();
+          } catch (error) {
+            console.error('Failed to synchronize category deletions:', error);
+            setSyncStatus('error');
+            setSyncStatusMsg(
+              `Category deletion sync failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`
+            );
+            return;
+          }
+          initialDeletions = true;
+          await mergeInitialLocalData();
+        }
+      },
+      (error) => {
+        setSyncStatus('error');
+        setSyncStatusMsg(`Category deletion sync error: ${error.message}`);
+        try {
+          handleFirestoreError(error, OperationType.GET, `users/${uid}/categoryDeletions`);
+        } catch (e) {
+          console.warn('Category deletion sync error:', e);
+        }
+      }
+    );
+
     const unsubTasks = onSnapshot(
       tasksRef,
       async (snapshot) => {
@@ -491,13 +649,13 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
 
         const isFirst = !initialTasks;
-        initialTasks = true;
+        initialTasks = !snapshot.metadata.fromCache;
         initialRemoteTasks = remoteTasks;
         setLastCloudTaskCount(remoteTasks.length);
 
         if (!initialMergeCompleted) {
           await mergeInitialLocalData();
-        } else if (!hasPending || isFirst) {
+        } else if ((!hasPending || isFirst) && !snapshot.metadata.fromCache) {
           isApplyingRemoteRef.current = true;
           setTasks(remoteTasks);
           for (const t of remoteTasks) {
@@ -531,13 +689,15 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
 
         const isFirst = !initialCats;
-        initialCats = true;
+        initialCats = !snapshot.metadata.fromCache;
         initialRemoteCategories = remoteCats;
 
         if (!initialMergeCompleted) {
           await mergeInitialLocalData();
-        } else if (!hasPending || isFirst) {
-          const sorted = remoteCats.sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0));
+        } else if ((!hasPending || isFirst) && !snapshot.metadata.fromCache) {
+          const sorted = remoteCats
+            .filter((category) => !deletedCategoryIds.has(category.id))
+            .sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0));
           const categoriesByName = new Map<string, Category>();
           const categoryIdMap = new Map<string, string>();
           const uniqueCategories: Category[] = [];
@@ -653,6 +813,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       unsubTasks();
       unsubCats();
+      unsubDeletions();
       unsubSettings();
     };
   }, [cloudUser]);
@@ -961,15 +1122,31 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteCategory = useCallback(
     async (categoryId: string) => {
+      const deletion: CategoryDeletion = {
+        id: `${cloudUser?.uid ?? 'local'}:${categoryId}`,
+        categoryId,
+        userId: cloudUser?.uid ?? null,
+        deletedAt: new Date().toISOString(),
+      };
+      await dbService.putCategoryDeletion(deletion);
       await dbService.deleteCategory(categoryId);
       setCategories((prev) => prev.filter((c) => c.id !== categoryId));
-      if (cloudUser && !isApplyingRemoteRef.current) {
-        deleteCategoryFromCloud(categoryId, cloudUser.uid);
+      if (cloudUser) {
+        void (async () => {
+          await pushCategoryDeletionToCloud(deletion, cloudUser.uid);
+          await deleteCategoryFromCloud(categoryId, cloudUser.uid);
+        })().catch((error) => {
+          console.error('Failed to synchronize deleted category:', error);
+          showToast('Tab removed locally; cloud deletion will retry when connected');
+        });
       }
       setSettings((prev) => {
         if (prev.activeTab === categoryId) {
           const next = { ...prev, activeTab: 'all' };
-          dbService.saveSettings(next);
+          void dbService.saveSettings(next).catch((error) => {
+            console.error('Failed to save settings after category deletion:', error);
+            showToast('Tab removed, but settings could not be saved');
+          });
           return next;
         }
         return prev;
@@ -1086,6 +1263,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const pushAllToCloudAction = useCallback(async () => {
     if (!cloudUser) return;
     try {
+      await uploadPendingCategoryDeletions(cloudUser.uid);
       await pushAllToCloud(tasks, categories, settings, cloudUser.uid);
       showToast('Merged all local tasks to cloud');
     } catch (err: any) {
@@ -1096,6 +1274,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const overwriteCloudAction = useCallback(async () => {
     if (!cloudUser) return;
     try {
+      await uploadPendingCategoryDeletions(cloudUser.uid);
       await overwriteCloudWithLocal(tasks, categories, settings, cloudUser.uid);
       showToast('Replaced cloud database with local tasks');
     } catch (err: any) {
@@ -1106,8 +1285,13 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const pullCloudAction = useCallback(async () => {
     if (!cloudUser) return;
     try {
+      await uploadPendingCategoryDeletions(cloudUser.uid);
       const data = await fetchCloudData(cloudUser.uid);
       if (data) {
+        for (const deletion of data.categoryDeletions) {
+          await dbService.putCategoryDeletion(deletion);
+          await dbService.deleteCategory(deletion.categoryId);
+        }
         const normalizedTasks = data.tasks.map(migrateTaskEstimatedTime);
         setTasks(normalizedTasks);
         setCategories(data.categories.sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0)));
