@@ -8,6 +8,7 @@ export const CategoryDialog: React.FC = () => {
     editingCategory,
     addCategory,
     updateCategory,
+    updateSettings,
   } = usePlanner();
 
   const [name, setName] = useState('');
@@ -29,7 +30,8 @@ export const CategoryDialog: React.FC = () => {
     if (editingCategory) {
       await updateCategory({ ...editingCategory, name: trimmed });
     } else {
-      await addCategory(trimmed);
+      const categoryId = await addCategory(trimmed);
+      if (categoryId) await updateSettings({ activeTab: categoryId });
     }
     closeCategoryDialog();
   };

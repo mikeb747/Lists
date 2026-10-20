@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { usePlanner } from '../../context/PlannerContext';
 import { SubtaskItem, RecurrenceType } from '../../types';
 
@@ -23,6 +23,7 @@ export const TaskDialog: React.FC = () => {
   const [reminderAt, setReminderAt] = useState('');
   const [subtasks, setSubtasks] = useState<SubtaskItem[]>([]);
   const [newSubtaskText, setNewSubtaskText] = useState('');
+  const importanceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingTask) {
@@ -198,6 +199,12 @@ export const TaskDialog: React.FC = () => {
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isSubheading) {
+                  e.preventDefault();
+                  importanceInputRef.current?.focus();
+                }
+              }}
             />
           </label>
           <label className="choice switch-row">
@@ -217,6 +224,7 @@ export const TaskDialog: React.FC = () => {
                 <input
                   type="range"
                   name="importance"
+                  ref={importanceInputRef}
                   min="1"
                   max="5"
                   step="1"

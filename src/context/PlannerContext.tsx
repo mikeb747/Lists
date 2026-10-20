@@ -84,7 +84,7 @@ interface PlannerContextType {
   moveTaskToCategory: (taskId: string, categoryId: string) => Promise<void>;
   convertSubtasksToTasks: (task: Task) => Promise<void>;
 
-  addCategory: (name: string) => Promise<void>;
+  addCategory: (name: string) => Promise<string | null>;
   updateCategory: (category: Category) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   reorderCategories: (newCats: Category[]) => Promise<void>;
@@ -891,7 +891,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addCategory = useCallback(
     async (name: string) => {
       const trimmed = name.trim();
-      if (!trimmed) return;
+      if (!trimmed) return null;
       const newCat: Category = {
         id: crypto.randomUUID(),
         name: trimmed,
@@ -904,6 +904,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         pushCategoryToCloud(newCat, cloudUser.uid);
       }
       showToast(`Tab “${trimmed}” created`);
+      return newCat.id;
     },
     [categories, cloudUser, showToast]
   );
