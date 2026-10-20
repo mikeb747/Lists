@@ -551,6 +551,11 @@ html[data-theme="dark"] .tab[data-tab="archive"]:not(.active) {
   touch-action: none !important;
 }
 
+#category-tabs,
+#category-tabs .tab {
+  touch-action: none;
+}
+
 body.dragging-tab-mode {
   touch-action: none !important;
   user-select: none !important;

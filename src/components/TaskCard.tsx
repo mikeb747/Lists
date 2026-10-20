@@ -10,7 +10,6 @@ interface TaskCardProps {
   isArchive?: boolean;
   isDragging?: boolean;
   onReorderStart?: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onReorderMove?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onReorderEnd?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }
 
@@ -22,7 +21,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isArchive = false,
   isDragging = false,
   onReorderStart,
-  onReorderMove,
   onReorderEnd,
 }) => {
   const {
@@ -275,7 +273,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             disabled={!manualOrder}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={onReorderStart}
-            onPointerMove={onReorderMove}
             onPointerUp={onReorderEnd}
             onPointerCancel={onReorderEnd}
           >
@@ -364,7 +361,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           disabled={!manualOrder}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={onReorderStart}
-          onPointerMove={onReorderMove}
           onPointerUp={onReorderEnd}
           onPointerCancel={onReorderEnd}
         >

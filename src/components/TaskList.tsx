@@ -12,8 +12,10 @@ export const TaskList: React.FC = () => {
   const initialDragOrderRef = useRef<Task[]>([]);
   const pointerYRef = useRef(0);
   const ghostRef = useRef<HTMLElement | null>(null);
+  const grabOffsetXRef = useRef(0);
   const grabOffsetYRef = useRef(0);
   const autoScrollFrameRef = useRef<number | null>(null);
+  const pointerMoveListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const pointerEndListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const preventScrollListenerRef = useRef<((event: Event) => void) | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -135,6 +137,10 @@ export const TaskList: React.FC = () => {
     if (pointerIdRef.current !== pointerId) return;
     pointerIdRef.current = null;
     draggingTaskIdRef.current = null;
+    if (pointerMoveListenerRef.current) {
+      window.removeEventListener('pointermove', pointerMoveListenerRef.current);
+      pointerMoveListenerRef.current = null;
+    }
     if (pointerEndListenerRef.current) {
       window.removeEventListener('pointerup', pointerEndListenerRef.current);
       window.removeEventListener('pointercancel', pointerEndListenerRef.current);
@@ -190,6 +196,7 @@ export const TaskList: React.FC = () => {
       ghost.style.left = `${bounds.left}px`;
       ghost.style.top = `${bounds.top}px`;
       ghostRef.current = ghost;
+      grabOffsetXRef.current = e.clientX - bounds.left;
       grabOffsetYRef.current = e.clientY - bounds.top;
       document.body.appendChild(ghost);
     }
@@ -204,6 +211,17 @@ export const TaskList: React.FC = () => {
     pointerEndListenerRef.current = (event) => finishTaskDrag(event.pointerId);
     window.addEventListener('pointerup', pointerEndListenerRef.current);
     window.addEventListener('pointercancel', pointerEndListenerRef.current);
+    pointerMoveListenerRef.current = (event) => {
+      if (pointerIdRef.current !== event.pointerId) return;
+      if (event.cancelable) event.preventDefault();
+      pointerYRef.current = event.clientY;
+      if (ghostRef.current) {
+        ghostRef.current.style.left = `${event.clientX - grabOffsetXRef.current}px`;
+        ghostRef.current.style.top = `${event.clientY - grabOffsetYRef.current}px`;
+      }
+      placeDraggedTask(event.clientY);
+    };
+    window.addEventListener('pointermove', pointerMoveListenerRef.current, { passive: false });
     preventScrollListenerRef.current = (event) => event.preventDefault();
     document.addEventListener('touchmove', preventScrollListenerRef.current, { passive: false });
     document.addEventListener('wheel', preventScrollListenerRef.current, { passive: false });
@@ -219,16 +237,6 @@ export const TaskList: React.FC = () => {
     autoScrollFrameRef.current = requestAnimationFrame(autoScroll);
   };
 
-  const handleReorderMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (pointerIdRef.current !== e.pointerId) return;
-    e.preventDefault();
-    pointerYRef.current = e.clientY;
-    if (ghostRef.current) {
-      ghostRef.current.style.top = `${e.clientY - grabOffsetYRef.current}px`;
-    }
-    placeDraggedTask(e.clientY);
-  };
-
   const handleReorderEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     finishTaskDrag(e.pointerId);
@@ -238,6 +246,9 @@ export const TaskList: React.FC = () => {
     () => () => {
       if (autoScrollFrameRef.current !== null) {
         cancelAnimationFrame(autoScrollFrameRef.current);
+      }
+      if (pointerMoveListenerRef.current) {
+        window.removeEventListener('pointermove', pointerMoveListenerRef.current);
       }
       if (pointerEndListenerRef.current) {
         window.removeEventListener('pointerup', pointerEndListenerRef.current);
@@ -362,7 +373,6 @@ export const TaskList: React.FC = () => {
           isArchive={isArchive}
           isDragging={draggingTaskId === task.id}
           onReorderStart={(e) => handleReorderStart(task, e)}
-          onReorderMove={handleReorderMove}
           onReorderEnd={handleReorderEnd}
         />
       ))}

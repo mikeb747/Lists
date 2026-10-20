@@ -18,16 +18,23 @@ export const CategoryTabs: React.FC = () => {
   const [hasOverflow, setHasOverflow] = useState(false);
   const [dragOrder, setDragOrder] = useState<Category[]>([]);
   const [draggingCategoryId, setDraggingCategoryId] = useState<string | null>(null);
+  const dragOrderRef = useRef<Category[]>([]);
+  const draggingCategoryIdRef = useRef<string | null>(null);
+  const armedCategoryIdRef = useRef<string | null>(null);
 
   const dragActivationTimerRef = useRef<number | null>(null);
   const tabOptionsTimerRef = useRef<number | null>(null);
   const pointerStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const pointerStartScrollLeftRef = useRef(0);
   const pointerIdRef = useRef<number | null>(null);
+  const pointerMoveListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
+  const pointerEndListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const tabElementRef = useRef<HTMLButtonElement | null>(null);
   const ghostRef = useRef<HTMLElement | null>(null);
   const pointerXRef = useRef(0);
   const edgeScrollIntervalRef = useRef<number | null>(null);
   const grabOffsetRef = useRef({ x: 0, y: 0 });
+  const isScrollingTabsRef = useRef(false);
   const suppressClickRef = useRef(false);
 
   const [containerWidth, setContainerWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 760);
@@ -56,6 +63,13 @@ export const CategoryTabs: React.FC = () => {
       if (edgeScrollIntervalRef.current !== null) {
         window.clearInterval(edgeScrollIntervalRef.current);
       }
+      if (pointerMoveListenerRef.current) {
+        window.removeEventListener('pointermove', pointerMoveListenerRef.current);
+      }
+      if (pointerEndListenerRef.current) {
+        window.removeEventListener('pointerup', pointerEndListenerRef.current);
+        window.removeEventListener('pointercancel', pointerEndListenerRef.current);
+      }
       ghostRef.current?.remove();
       document.body.classList.remove('dragging-tab-mode');
     },
@@ -81,6 +95,12 @@ export const CategoryTabs: React.FC = () => {
   const getTabColor = (category: Category) => {
     if (settings.tabColors?.[category.id]) return settings.tabColors[category.id];
     return category.color || '';
+  };
+
+  const vibrate = (duration: number) => {
+    try {
+      navigator.vibrate?.(duration);
+    } catch {}
   };
 
   const clearPressTimers = () => {
@@ -111,8 +131,9 @@ export const CategoryTabs: React.FC = () => {
       x: pointerStartPosRef.current.x - rect.left,
       y: pointerStartPosRef.current.y - rect.top,
     };
-    tab.setPointerCapture(pointerIdRef.current);
-    setDragOrder([...categories]);
+    dragOrderRef.current = [...categories];
+    setDragOrder(dragOrderRef.current);
+    draggingCategoryIdRef.current = categoryId;
     setDraggingCategoryId(categoryId);
     suppressClickRef.current = true;
     document.body.classList.add('dragging-tab-mode');
@@ -124,101 +145,17 @@ export const CategoryTabs: React.FC = () => {
       else if (pointerXRef.current > bounds.right - 36) tabs.scrollBy({ left: 12 });
       checkScroll();
     }, 20);
-    if (navigator.vibrate) navigator.vibrate(20);
+    vibrate(20);
   };
 
-  const handlePointerDown = (
-    tabId: string,
-    isUserCategory: boolean,
-    e: React.PointerEvent<HTMLButtonElement>
-  ) => {
-    if (e.button !== 0) return;
+  const finishTabGesture = (pointerId: number) => {
+    if (pointerIdRef.current !== pointerId) return;
     clearPressTimers();
-    pointerStartPosRef.current = { x: e.clientX, y: e.clientY };
-    pointerXRef.current = e.clientX;
-    suppressClickRef.current = false;
-    pointerIdRef.current = e.pointerId;
-    tabElementRef.current = e.currentTarget;
-
-    if (isUserCategory) {
-      dragActivationTimerRef.current = window.setTimeout(() => {
-        dragActivationTimerRef.current = null;
-        if (tabOptionsTimerRef.current) {
-          window.clearTimeout(tabOptionsTimerRef.current);
-          tabOptionsTimerRef.current = null;
-        }
-        startTabDrag(tabId);
-      }, settings.tabDragHoldMs || 400);
-    }
-
-    tabOptionsTimerRef.current = window.setTimeout(() => {
-      tabOptionsTimerRef.current = null;
-      if (draggingCategoryId) return;
-      if (dragActivationTimerRef.current) {
-        window.clearTimeout(dragActivationTimerRef.current);
-        dragActivationTimerRef.current = null;
-      }
-      suppressClickRef.current = true;
-      if (navigator.vibrate) {
-        navigator.vibrate(35);
-      }
-      openCategoryActions(tabId);
-    }, settings.tabOptionsHoldMs || 1000);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (draggingCategoryId && pointerIdRef.current === e.pointerId) {
-      pointerXRef.current = e.clientX;
-      const ghost = ghostRef.current;
-      if (ghost) {
-        ghost.style.left = `${e.clientX - grabOffsetRef.current.x}px`;
-        ghost.style.top = `${e.clientY - grabOffsetRef.current.y}px`;
-      }
-
-      const tabs = tabsRef.current;
-      if (tabs) {
-        const remaining = dragOrder.filter((category) => category.id !== draggingCategoryId);
-        const buttons = tabs.querySelectorAll<HTMLButtonElement>('[data-user-category="true"]');
-        let insertionIndex = remaining.length;
-        for (let i = 0; i < remaining.length; i++) {
-          const button = Array.from(buttons).find(
-            (candidate) => candidate.dataset.tab === remaining[i].id
-          );
-          if (button && e.clientX < button.getBoundingClientRect().left + button.offsetWidth / 2) {
-            insertionIndex = i;
-            break;
-          }
-        }
-        const dragged = dragOrder.find((category) => category.id === draggingCategoryId);
-        if (dragged) {
-          remaining.splice(insertionIndex, 0, dragged);
-          if (remaining.some((category, index) => category.id !== dragOrder[index]?.id)) {
-            setDragOrder(remaining);
-          }
-        }
-      }
-      checkScroll();
-      return;
-    }
-
-    if (dragActivationTimerRef.current || tabOptionsTimerRef.current) {
-      const dist = Math.hypot(
-        e.clientX - pointerStartPosRef.current.x,
-        e.clientY - pointerStartPosRef.current.y
-      );
-      if (dist > 10) {
-        clearPressTimers();
-        suppressClickRef.current = true;
-      }
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (pointerIdRef.current !== e.pointerId) return;
-    clearPressTimers();
-    if (draggingCategoryId) {
-      const reordered = [...dragOrder];
+    if (draggingCategoryIdRef.current) {
+      const reordered = [...dragOrderRef.current];
+      draggingCategoryIdRef.current = null;
       setDraggingCategoryId(null);
+      dragOrderRef.current = [];
       setDragOrder([]);
       document.body.classList.remove('dragging-tab-mode');
       if (edgeScrollIntervalRef.current !== null) {
@@ -229,14 +166,149 @@ export const CategoryTabs: React.FC = () => {
       ghostRef.current = null;
       void reorderCategories(reordered);
     }
+    armedCategoryIdRef.current = null;
+    if (pointerMoveListenerRef.current) {
+      window.removeEventListener('pointermove', pointerMoveListenerRef.current);
+      pointerMoveListenerRef.current = null;
+    }
+    if (pointerEndListenerRef.current) {
+      window.removeEventListener('pointerup', pointerEndListenerRef.current);
+      window.removeEventListener('pointercancel', pointerEndListenerRef.current);
+      pointerEndListenerRef.current = null;
+    }
     pointerIdRef.current = null;
     tabElementRef.current = null;
-    if (suppressClickRef.current) {
-      window.setTimeout(() => {
-        suppressClickRef.current = false;
-      }, 0);
+    isScrollingTabsRef.current = false;
+  };
+
+  const handlePointerMove = (pointerId: number, clientX: number, clientY: number) => {
+    if (pointerIdRef.current !== pointerId) return;
+    pointerXRef.current = clientX;
+
+    const deltaX = clientX - pointerStartPosRef.current.x;
+    const deltaY = clientY - pointerStartPosRef.current.y;
+
+    if (!draggingCategoryIdRef.current && armedCategoryIdRef.current) {
+      const categoryId = armedCategoryIdRef.current;
+      armedCategoryIdRef.current = null;
+      if (tabOptionsTimerRef.current) {
+        window.clearTimeout(tabOptionsTimerRef.current);
+        tabOptionsTimerRef.current = null;
+      }
+      startTabDrag(categoryId);
+    }
+
+    const activeDragId = draggingCategoryIdRef.current;
+    if (activeDragId) {
+      if (tabOptionsTimerRef.current) {
+        window.clearTimeout(tabOptionsTimerRef.current);
+        tabOptionsTimerRef.current = null;
+      }
+      const ghost = ghostRef.current;
+      if (ghost) {
+        ghost.style.left = `${clientX - grabOffsetRef.current.x}px`;
+        ghost.style.top = `${clientY - grabOffsetRef.current.y}px`;
+      }
+
+      const tabs = tabsRef.current;
+      if (tabs) {
+        const currentOrder = dragOrderRef.current;
+        const remaining = currentOrder.filter((category) => category.id !== activeDragId);
+        const buttons = tabs.querySelectorAll<HTMLButtonElement>('[data-user-category="true"]');
+        let insertionIndex = remaining.length;
+        for (let i = 0; i < remaining.length; i++) {
+          const button = Array.from(buttons).find(
+            (candidate) => candidate.dataset.tab === remaining[i].id
+          );
+          if (button && clientX < button.getBoundingClientRect().left + button.offsetWidth / 2) {
+            insertionIndex = i;
+            break;
+          }
+        }
+        const dragged = currentOrder.find((category) => category.id === activeDragId);
+        if (dragged) {
+          remaining.splice(insertionIndex, 0, dragged);
+          if (remaining.some((category, index) => category.id !== currentOrder[index]?.id)) {
+            dragOrderRef.current = remaining;
+            setDragOrder(remaining);
+          }
+        }
+      }
+      checkScroll();
+      return;
+    }
+
+    if (isScrollingTabsRef.current) {
+      if (tabsRef.current) {
+        tabsRef.current.scrollLeft = pointerStartScrollLeftRef.current - deltaX;
+      }
+      checkScroll();
+      return;
+    }
+
+    if (armedCategoryIdRef.current || dragActivationTimerRef.current || tabOptionsTimerRef.current) {
+      const distance = Math.hypot(deltaX, deltaY);
+      if (distance > 24) {
+        clearPressTimers();
+        armedCategoryIdRef.current = null;
+        suppressClickRef.current = true;
+        isScrollingTabsRef.current = Math.abs(deltaX) > Math.abs(deltaY);
+        if (isScrollingTabsRef.current && tabsRef.current) {
+          tabsRef.current.scrollLeft = pointerStartScrollLeftRef.current - deltaX;
+          checkScroll();
+        }
+      }
     }
   };
+
+  const handlePointerDown = (
+    tabId: string,
+    isUserCategory: boolean,
+    e: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    if (e.button !== 0 || !e.isPrimary || pointerIdRef.current !== null) return;
+    clearPressTimers();
+    pointerStartPosRef.current = { x: e.clientX, y: e.clientY };
+    pointerXRef.current = e.clientX;
+    pointerStartScrollLeftRef.current = tabsRef.current?.scrollLeft ?? 0;
+    isScrollingTabsRef.current = false;
+    suppressClickRef.current = false;
+    pointerIdRef.current = e.pointerId;
+    tabElementRef.current = e.currentTarget;
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    if (isUserCategory) {
+      dragActivationTimerRef.current = window.setTimeout(() => {
+        dragActivationTimerRef.current = null;
+        if (pointerIdRef.current === e.pointerId) armedCategoryIdRef.current = tabId;
+      }, settings.tabDragHoldMs || 400);
+    }
+
+    tabOptionsTimerRef.current = window.setTimeout(() => {
+      tabOptionsTimerRef.current = null;
+      if (pointerIdRef.current !== e.pointerId || draggingCategoryIdRef.current) return;
+      if (dragActivationTimerRef.current) {
+        window.clearTimeout(dragActivationTimerRef.current);
+        dragActivationTimerRef.current = null;
+      }
+      armedCategoryIdRef.current = null;
+      suppressClickRef.current = true;
+      vibrate(35);
+      openCategoryActions(tabId);
+    }, settings.tabOptionsHoldMs || 1000);
+
+    pointerMoveListenerRef.current = (event) => {
+      if (pointerIdRef.current !== event.pointerId) return;
+      if (event.cancelable) event.preventDefault();
+      handlePointerMove(event.pointerId, event.clientX, event.clientY);
+    };
+    window.addEventListener('pointermove', pointerMoveListenerRef.current, { passive: false });
+    pointerEndListenerRef.current = (event) => finishTabGesture(event.pointerId);
+    window.addEventListener('pointerup', pointerEndListenerRef.current);
+    window.addEventListener('pointercancel', pointerEndListenerRef.current);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => finishTabGesture(e.pointerId);
 
   const handleTabClick = (tabId: string) => {
     if (suppressClickRef.current) {
@@ -286,7 +358,6 @@ export const CategoryTabs: React.FC = () => {
           data-compact={isTabCompact('all')}
           onClick={() => handleTabClick('all')}
           onPointerDown={(e) => handlePointerDown('all', false, e)}
-          onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onContextMenu={(e) => {
@@ -318,7 +389,6 @@ export const CategoryTabs: React.FC = () => {
               data-tab-color={color || undefined}
               onClick={() => handleTabClick(cat.id)}
               onPointerDown={(e) => handlePointerDown(cat.id, true, e)}
-              onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
               onContextMenu={(e) => {
@@ -339,7 +409,6 @@ export const CategoryTabs: React.FC = () => {
           data-compact={isTabCompact('archive')}
           onClick={() => handleTabClick('archive')}
           onPointerDown={(e) => handlePointerDown('archive', false, e)}
-          onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onContextMenu={(e) => {
