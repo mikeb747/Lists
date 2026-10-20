@@ -35,6 +35,25 @@ from saved tasks at startup. Android reminders include a 15-minute snooze action
 Browser and PWA installs continue to use the existing in-app and Web Notifications
 behavior.
 
+Android Google sign-in uses native Google authentication. In Firebase Console,
+add an Android app with package name `com.mikeb747.lists`, register the SHA-1
+fingerprint of the Android debug signing certificate, enable Google under
+**Authentication → Sign-in method**, and download its `google-services.json` to
+`android/app/google-services.json`. Keep this file out of source control.
+
+The GitHub APK workflow requires two repository Actions secrets:
+
+- `FIREBASE_ANDROID_GOOGLE_SERVICES_JSON`: the full contents of that
+  `google-services.json` file.
+- `ANDROID_DEBUG_KEYSTORE_BASE64`: the Base64-encoded Android debug keystore
+  whose SHA-1 fingerprint is registered in Firebase. Reusing the same keystore
+  ensures Google sign-in continues to work in each downloaded APK.
+
+On Windows, get the local debug certificate SHA-1 with
+`keytool -list -v -alias androiddebugkey -keystore "$env:USERPROFILE\.android\debug.keystore" -storepass android -keypass android`.
+Encode that keystore for the Actions secret with
+`[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore"))`.
+
 Every push to `main` also builds an Android debug APK using the workflow in
 `.github/workflows/android.yml`, in parallel with the GitHub Pages build. Download
 the `Lists-android-debug-<commit>` artifact from that run under **Actions** and

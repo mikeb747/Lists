@@ -1,7 +1,12 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {
   getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
   signInWithPopup,
+  signInWithCredential,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut,
@@ -51,7 +56,10 @@ export interface FirestoreErrorInfo {
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+export const auth =
+  Capacitor.getPlatform() === 'android'
+    ? initializeAuth(app, { persistence: indexedDBLocalPersistence })
+    : getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -90,6 +98,17 @@ export async function testConnection(): Promise<void> {
 testConnection();
 
 export async function signInCloudWithGoogle(): Promise<User> {
+  if (Capacitor.getPlatform() === 'android') {
+    const result = await FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
+    const idToken = result.credential?.idToken;
+    if (!idToken) {
+      throw new Error('Google sign-in did not return an ID token.');
+    }
+    const credential = GoogleAuthProvider.credential(idToken);
+    const userCredential = await signInWithCredential(auth, credential);
+    return userCredential.user;
+  }
+
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
 }
