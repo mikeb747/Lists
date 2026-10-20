@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lists</string>
+    <string name="title_activity_main">Lists</string>
+    <string name="package_name">com.mikeb747.lists</string>
+    <string name="custom_url_scheme">com.mikeb747.lists</string>
+</resources>

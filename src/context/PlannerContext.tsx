@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import type { PluginListenerHandle } from '@capacitor/core';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import {
@@ -28,6 +29,13 @@ import {
   OperationType,
 } from '../services/firebase';
 import { playReminderChime } from '../services/audio';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import {
+  isAndroidNative,
+  requestReminderPermission,
+  synchronizeAndroidReminders,
+  TASK_REMINDER_ACTION_TYPE,
+} from '../services/nativeReminders';
 
 const THEME_HEADER_COLORS: Record<string, string> = {
   purple: '#6750a4',
@@ -104,7 +112,7 @@ interface PlannerContextType {
 
   // CRUD
   addTask: (data: Partial<Task>) => Promise<boolean>;
-  updateTask: (task: Task) => Promise<void>;
+  updateTask: (task: Task) => Promise<boolean>;
   deleteTask: (taskId: string) => Promise<void>;
   toggleComplete: (task: Task) => Promise<void>;
   reorderTasks: (newTasks: Task[]) => Promise<void>;
@@ -177,7 +185,7 @@ interface PlannerContextType {
 
   // Reminders
   dismissReminderToast: () => void;
-  snoozeReminder: (minutes: number) => Promise<void>;
+  snoozeReminder: (minutes: number, taskId?: string) => Promise<void>;
 }
 
 const PlannerContext = createContext<PlannerContextType | undefined>(undefined);
@@ -259,6 +267,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [activeReminderTask, setActiveReminderTask] = useState<Task | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
 
   // Dialogs
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -290,6 +299,25 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTimeout(() => {
       setToastMessage((cur) => (cur === msg ? null : cur));
     }, 3200);
+  }, []);
+
+  const ensureReminderPermission = useCallback(async (task: Task) => {
+    const reminderTime = new Date(task.reminderAt || '').getTime();
+    if (
+      !task.reminderAt ||
+      task.completed ||
+      task.isSubheading ||
+      !Number.isFinite(reminderTime) ||
+      reminderTime <= Date.now()
+    ) {
+      return true;
+    }
+    try {
+      return await requestReminderPermission();
+    } catch (error) {
+      console.error('Failed to request Android notification permission:', error);
+      return false;
+    }
   }, []);
 
   // Theme application
@@ -326,6 +354,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         }
         setTasks(normalizedTasks);
+        setTasksLoaded(true);
         // Note: As requested by the user, on fresh install remove the Personal and Work categories!
         // We preserve whatever exists in local DB or start with empty categories array.
         setCategories(loadedCats || []);
@@ -818,6 +847,14 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [cloudUser]);
 
+  useEffect(() => {
+    if (!tasksLoaded || !isAndroidNative()) return;
+    void synchronizeAndroidReminders(tasks).catch((error) => {
+      console.error('Failed to synchronize Android reminders:', error);
+      showToast('Android reminders could not be updated');
+    });
+  }, [tasks, tasksLoaded, showToast]);
+
   // Reminder checking interval
   const checkPendingReminders = useCallback(() => {
     const now = Date.now();
@@ -863,6 +900,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [tasks, cloudUser, settings.appName]);
 
   useEffect(() => {
+    if (isAndroidNative()) return;
     checkPendingReminders();
     const interval = setInterval(checkPendingReminders, 15000);
     const onVisibility = () => {
@@ -904,15 +942,20 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updatedAt: new Date().toISOString(),
       };
 
+      const notificationPermissionGranted = await ensureReminderPermission(newTask);
       await dbService.putTask(newTask);
       setTasks((prev) => [...prev, newTask]);
       if (cloudUser && !isApplyingRemoteRef.current) {
         pushTaskToCloud(newTask, cloudUser.uid);
       }
-      showToast('Task added');
+      showToast(
+        notificationPermissionGranted
+          ? 'Task added'
+          : 'Task added, but Android notifications are disabled'
+      );
       return true;
     },
-    [tasks, cloudUser, showToast]
+    [tasks, cloudUser, showToast, ensureReminderPermission]
   );
 
   const updateTask = useCallback(
@@ -921,13 +964,25 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...task,
         updatedAt: new Date().toISOString(),
       };
+      const previousTask = tasks.find((existingTask) => existingTask.id === task.id);
+      const notificationPermissionGranted =
+        updated.reminderAt &&
+        updated.reminderAt !== previousTask?.reminderAt &&
+        !updated.completed &&
+        !updated.isSubheading
+          ? await ensureReminderPermission(updated)
+          : true;
       await dbService.putTask(updated);
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
       if (cloudUser && !isApplyingRemoteRef.current) {
         pushTaskToCloud(updated, cloudUser.uid);
       }
+      if (!notificationPermissionGranted) {
+        showToast('Task saved, but Android notifications are disabled');
+      }
+      return notificationPermissionGranted;
     },
-    [cloudUser]
+    [tasks, cloudUser, showToast, ensureReminderPermission]
   );
 
   const deleteTask = useCallback(
@@ -968,10 +1023,15 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           updatedAt: new Date().toISOString(),
         };
 
+        const nextReminderPermissionGranted = await ensureReminderPermission(nextTask);
         await dbService.putTask(nextTask);
         setTasks((prev) => [...prev, nextTask]);
         if (cloudUser) pushTaskToCloud(nextTask, cloudUser.uid);
-        showToast(`Completed! Next occurrence scheduled for ${nextDueDate || 'next cycle'}`);
+        showToast(
+          nextReminderPermissionGranted
+            ? `Completed! Next occurrence scheduled for ${nextDueDate || 'next cycle'}`
+            : 'Next task created, but Android notifications are disabled'
+        );
       }
 
       const updated: Task = {
@@ -981,13 +1041,20 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updatedAt: new Date().toISOString(),
       };
 
+      const notificationPermissionGranted =
+        !isBecomingCompleted && updated.reminderAt && !updated.reminderFired
+          ? await ensureReminderPermission(updated)
+          : true;
       await dbService.putTask(updated);
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
       if (cloudUser && !isApplyingRemoteRef.current) {
         pushTaskToCloud(updated, cloudUser.uid);
       }
+      if (!notificationPermissionGranted) {
+        showToast('Task updated, but Android notifications are disabled');
+      }
     },
-    [tasks, cloudUser, showToast]
+    [tasks, cloudUser, showToast, ensureReminderPermission]
   );
 
   const reorderTasks = useCallback(
@@ -1419,8 +1486,11 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const dismissReminderToast = useCallback(() => setActiveReminderTask(null), []);
 
   const snoozeReminder = useCallback(
-    async (minutes: number) => {
-      if (!activeReminderTask) return;
+    async (minutes: number, taskId?: string) => {
+      const reminderTask = taskId
+        ? tasks.find((task) => task.id === taskId)
+        : activeReminderTask;
+      if (!reminderTask) return;
       const newTime = new Date(Date.now() + minutes * 60 * 1000);
       const year = newTime.getFullYear();
       const month = String(newTime.getMonth() + 1).padStart(2, '0');
@@ -1429,17 +1499,78 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const mins = String(newTime.getMinutes()).padStart(2, '0');
 
       const updated: Task = {
-        ...activeReminderTask,
+        ...reminderTask,
         reminderAt: `${year}-${month}-${day}T${hours}:${mins}`,
         reminderFired: false,
         updatedAt: new Date().toISOString(),
       };
-      await updateTask(updated);
-      setActiveReminderTask(null);
-      showToast(`Snoozed for ${minutes} minutes`);
+      const notificationPermissionGranted = await updateTask(updated);
+      setActiveReminderTask((current) => (current?.id === reminderTask.id ? null : current));
+      showToast(
+        notificationPermissionGranted
+          ? `Snoozed for ${minutes} minutes`
+          : `Snoozed for ${minutes} minutes, but Android notifications are disabled`
+      );
     },
-    [activeReminderTask, updateTask, showToast]
+    [activeReminderTask, tasks, updateTask, showToast]
   );
+
+  const snoozeReminderRef = useRef(snoozeReminder);
+  useEffect(() => {
+    snoozeReminderRef.current = snoozeReminder;
+  }, [snoozeReminder]);
+
+  useEffect(() => {
+    if (!tasksLoaded || !isAndroidNative()) return;
+
+    let disposed = false;
+    let listener: PluginListenerHandle | null = null;
+    const registerListener = async () => {
+      await LocalNotifications.registerActionTypes({
+        types: [
+          {
+            id: TASK_REMINDER_ACTION_TYPE,
+            actions: [{ id: 'snooze-15', title: 'Snooze 15m', foreground: true }],
+          },
+        ],
+      });
+      const registeredListener = await LocalNotifications.addListener(
+        'localNotificationActionPerformed',
+        (event) => {
+          if (
+            event.actionId !== 'snooze-15' ||
+            event.notification.extra?.source !== 'lists-task-reminder' ||
+            typeof event.notification.extra?.taskId !== 'string'
+          ) {
+            return;
+          }
+          void snoozeReminderRef.current(15, event.notification.extra.taskId).catch((error) => {
+            console.error('Failed to snooze Android reminder:', error);
+            showToast('Could not snooze Android reminder');
+          });
+        }
+      );
+      if (disposed) {
+        await registeredListener.remove();
+      } else {
+        listener = registeredListener;
+      }
+    };
+    void registerListener().catch((error) => {
+      if (disposed) return;
+      console.error('Failed to register Android reminder actions:', error);
+      showToast('Android reminder actions could not be enabled');
+    });
+
+    return () => {
+      disposed = true;
+      if (listener) {
+        void listener.remove().catch((error) => {
+          console.error('Failed to remove Android reminder listener:', error);
+        });
+      }
+    };
+  }, [tasksLoaded, showToast]);
 
   return (
     <PlannerContext.Provider

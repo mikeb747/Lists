@@ -22,6 +22,19 @@ build, run `npm run build`; the deployable files are written to `dist`.
 Deploy `firestore.rules` when enabling category-deletion sync so signed-in clients can
 read and write the `categoryDeletions` collection.
 
+## Android
+
+The Android app is a Capacitor wrapper around the same React interface. Install
+Android Studio and its Android SDK, then run `npm run android:sync` to build the
+web app and copy it into the native project. Open the project with
+`npx cap open android` to run it on a device or emulator.
+
+Task reminders use Android local notifications. The app requests notification
+permission when a reminder is added or changed, and restores pending notifications
+from saved tasks at startup. Android reminders include a 15-minute snooze action.
+Browser and PWA installs continue to use the existing in-app and Web Notifications
+behavior.
+
 GitHub Pages deployments are built by the workflow in
 `.github/workflows/deploy.yml`. In the repository settings, set **Pages → Build
 and deployment → Source** to **GitHub Actions**. The Vite build compiles the
