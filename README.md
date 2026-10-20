@@ -35,6 +35,14 @@ from saved tasks at startup. Android reminders include a 15-minute snooze action
 Browser and PWA installs continue to use the existing in-app and Web Notifications
 behavior.
 
+Every push to `main` also builds an Android debug APK using the workflow in
+`.github/workflows/android.yml`, in parallel with the GitHub Pages build. Download
+the `Lists-android-debug-<commit>` artifact from that run under **Actions** and
+extract `app-debug.apk`. Transfer the APK to your phone (for example, over USB),
+open it there, and allow installation from that source if Android prompts you.
+The artifact is available for 30 days; it is a debug build for sideloading, not
+a Play Store release.
+
 GitHub Pages deployments are built by the workflow in
 `.github/workflows/deploy.yml`. In the repository settings, set **Pages → Build
 and deployment → Source** to **GitHub Actions**. The Vite build compiles the
