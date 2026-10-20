@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="description" content="Plan tasks by importance, time, and due date with a mobile-first Progressive Web App." />
+    <meta property="og:title" content="Lists" />
+    <meta property="og:description" content="Plan tasks by importance, time, and due date with a mobile-first Progressive Web App." />
+    <meta name="theme-color" content="#6750A4" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Lists" />
+    <title>Lists</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" href="./icons/favicon.png" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <script>
+      // Self-heal: Clean up any stale/broken service workers or caches from earlier builds
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            registrations[i].unregister();
+          }
+        }).catch(function () {});
+      }
+      if ('caches' in window) {
+        caches.keys().then(function (keys) {
+          for (var i = 0; i < keys.length; i++) {
+            caches.delete(keys[i]);
+          }
+        }).catch(function () {});
+      }
+    </script>
+    <script type="module" crossorigin src="./assets/index-B_mCUjAt.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-s1TBoqzj.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
