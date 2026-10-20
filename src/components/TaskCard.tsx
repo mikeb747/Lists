@@ -403,7 +403,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               >
                 Importance {task.importance}
               </span>
-              <span className="chip task-chip-time">{task.estimatedTime}h</span>
+              <span className="chip task-chip-time">{task.estimatedTime}m</span>
               {task.dueDate && (
                 <span className={`chip task-chip-due ${isOverdue ? 'overdue' : ''}`}>
                   {task.dueDate}

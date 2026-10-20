@@ -16,7 +16,7 @@ export const TaskDialog: React.FC = () => {
   const [name, setName] = useState('');
   const [isSubheading, setIsSubheading] = useState(false);
   const [importance, setImportance] = useState(3);
-  const [estimatedTime, setEstimatedTime] = useState(1);
+  const [estimatedTime, setEstimatedTime] = useState(60);
   const [dueDate, setDueDate] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
@@ -31,7 +31,7 @@ export const TaskDialog: React.FC = () => {
       setIsSubheading(Boolean(editingTask.isSubheading));
       setImportance(editingTask.importance ?? 3);
       setEstimatedTime(
-        editingTask.estimatedTime !== undefined ? editingTask.estimatedTime : 1
+        editingTask.estimatedTime !== undefined ? editingTask.estimatedTime : 60
       );
       setDueDate(editingTask.dueDate || '');
       setCategoryId(
@@ -47,7 +47,7 @@ export const TaskDialog: React.FC = () => {
       setName('');
       setIsSubheading(false);
       setImportance(3);
-      setEstimatedTime(1);
+      setEstimatedTime(60);
       setDueDate('');
       const defaultCat =
         settings.activeTab !== 'all' && settings.activeTab !== 'archive'
@@ -200,9 +200,15 @@ export const TaskDialog: React.FC = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isSubheading) {
+                if (
+                  (e.key === 'Enter' || e.code === 'NumpadEnter') &&
+                  !e.nativeEvent.isComposing &&
+                  !isSubheading
+                ) {
                   e.preventDefault();
-                  importanceInputRef.current?.focus();
+                  const importanceInput = importanceInputRef.current;
+                  e.currentTarget.blur();
+                  window.requestAnimationFrame(() => importanceInput?.focus());
                 }
               }}
             />
@@ -236,13 +242,13 @@ export const TaskDialog: React.FC = () => {
                 </span>
               </label>
               <label>
-                Estimated time (hours)
+                Estimated time (minutes)
                 <input
                   type="number"
                   name="estimatedTime"
-                  min="0.25"
-                  max="80"
-                  step="0.25"
+                  min="1"
+                  max="4800"
+                  step="1"
                   value={estimatedTime}
                   required
                   onChange={(e) => setEstimatedTime(Number(e.target.value))}

@@ -55,6 +55,16 @@ const DEFAULT_SETTINGS: Settings = {
   taskColorMode: 'both',
 };
 
+function migrateTaskEstimatedTime(task: Task): Task {
+  if (task.estimatedTimeUnit === 'minutes') return task;
+  const hours = Number(task.estimatedTime);
+  return {
+    ...task,
+    estimatedTime: Math.round((Number.isFinite(hours) ? hours : 1) * 60),
+    estimatedTimeUnit: 'minutes',
+  };
+}
+
 export interface ConfirmDialogOptions {
   title: string;
   message: string;
@@ -292,7 +302,13 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dbService.getAllCategories(),
           dbService.getSettings(),
         ]);
-        setTasks(loadedTasks || []);
+        const normalizedTasks = (loadedTasks || []).map(migrateTaskEstimatedTime);
+        for (let i = 0; i < normalizedTasks.length; i++) {
+          if (loadedTasks[i].estimatedTimeUnit !== 'minutes') {
+            await dbService.putTask(normalizedTasks[i]);
+          }
+        }
+        setTasks(normalizedTasks);
         // Note: As requested by the user, on fresh install remove the Personal and Work categories!
         // We preserve whatever exists in local DB or start with empty categories array.
         setCategories(loadedCats || []);
@@ -346,6 +362,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dbService.getAllTasks(),
           dbService.getAllCategories(),
         ]);
+        const normalizedLocalTasks = localTasks.map(migrateTaskEstimatedTime);
         const remoteCategories = [...initialRemoteCategories].sort(
           (a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0)
         );
@@ -399,7 +416,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           (max, task) => Math.max(max, task.sortPosition ?? 0),
           -1
         ) + 1;
-        const localOnlyTasks = localTasks
+        const localOnlyTasks = normalizedLocalTasks
           .filter((task) => !remoteTaskIds.has(task.id))
           .sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0))
           .map((task) => ({
@@ -453,9 +470,25 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       async (snapshot) => {
         const hasPending = snapshot.metadata.hasPendingWrites;
         const remoteTasks: Task[] = [];
+        const migratedRemoteTasks: Task[] = [];
         snapshot.forEach((docSnap) => {
-          remoteTasks.push({ id: docSnap.id, ...docSnap.data() } as Task);
+          const rawTask = { id: docSnap.id, ...docSnap.data() } as Task;
+          const task = migrateTaskEstimatedTime(rawTask);
+          remoteTasks.push(task);
+          if (rawTask.estimatedTimeUnit !== 'minutes') migratedRemoteTasks.push(task);
         });
+        try {
+          for (const task of migratedRemoteTasks) await pushTaskToCloud(task, uid);
+        } catch (error) {
+          console.error('Failed to migrate cloud task estimates:', error);
+          setSyncStatus('error');
+          setSyncStatusMsg(
+            `Cloud estimate migration failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+          return;
+        }
 
         const isFirst = !initialTasks;
         initialTasks = true;
@@ -695,7 +728,8 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         id: crypto.randomUUID(),
         name,
         importance: data.importance || 3,
-        estimatedTime: data.estimatedTime !== undefined ? data.estimatedTime : 1,
+        estimatedTime: data.estimatedTime !== undefined ? data.estimatedTime : 60,
+        estimatedTimeUnit: 'minutes',
         dueDate: data.dueDate || '',
         categoryId: data.categoryId || '',
         completed: false,
@@ -856,7 +890,8 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           id: crypto.randomUUID(),
           name: s.title,
           importance: task.importance,
-          estimatedTime: Math.max(0.25, Math.round((task.estimatedTime / subtasks.length) * 10) / 10),
+          estimatedTime: Math.max(1, Math.round(task.estimatedTime / subtasks.length)),
+          estimatedTimeUnit: 'minutes',
           dueDate: task.dueDate,
           categoryId: task.categoryId,
           completed: s.completed,
@@ -990,7 +1025,8 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           id: crypto.randomUUID(),
           name: line,
           importance: 3,
-          estimatedTime: 1,
+          estimatedTime: 60,
+          estimatedTimeUnit: 'minutes',
           dueDate: '',
           categoryId: targetCategoryId || '',
           completed: false,
@@ -1072,11 +1108,17 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const data = await fetchCloudData(cloudUser.uid);
       if (data) {
-        setTasks(data.tasks);
+        const normalizedTasks = data.tasks.map(migrateTaskEstimatedTime);
+        setTasks(normalizedTasks);
         setCategories(data.categories.sort((a, b) => (a.sortPosition ?? 0) - (b.sortPosition ?? 0)));
         if (data.settings) setSettings((prev) => ({ ...prev, ...data.settings }));
 
-        for (const t of data.tasks) await dbService.putTask(t);
+        for (let i = 0; i < normalizedTasks.length; i++) {
+          await dbService.putTask(normalizedTasks[i]);
+          if (data.tasks[i].estimatedTimeUnit !== 'minutes') {
+            await pushTaskToCloud(normalizedTasks[i], cloudUser.uid);
+          }
+        }
         for (const c of data.categories) await dbService.putCategory(c);
         if (data.settings) await dbService.saveSettings({ ...settings, ...data.settings });
 
@@ -1123,14 +1165,15 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (!data || !Array.isArray(data.tasks)) {
           throw new Error('Invalid backup file format');
         }
-        for (const t of data.tasks) await dbService.putTask(t);
+        const normalizedTasks = data.tasks.map((task: Task) => migrateTaskEstimatedTime(task));
+        for (const task of normalizedTasks) await dbService.putTask(task);
         if (Array.isArray(data.categories)) {
           for (const c of data.categories) await dbService.putCategory(c);
         }
         if (data.settings) {
           await dbService.saveSettings({ ...settings, ...data.settings });
         }
-        setTasks(data.tasks);
+        setTasks(normalizedTasks);
         if (Array.isArray(data.categories)) setCategories(data.categories);
         if (data.settings) setSettings((prev) => ({ ...prev, ...data.settings }));
         showToast(`Imported ${data.tasks.length} tasks`);

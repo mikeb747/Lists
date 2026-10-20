@@ -79,7 +79,7 @@ export const TaskList: React.FC = () => {
     );
   } else if (sortMode === 'quickWins') {
     filtered = filtered.filter(
-      (t) => !t.isSubheading && Number(t.importance) >= 4 && Number(t.estimatedTime) <= 2
+      (t) => !t.isSubheading && Number(t.importance) >= 4 && Number(t.estimatedTime) <= 120
     );
   }
 
@@ -325,7 +325,7 @@ export const TaskList: React.FC = () => {
         return ['No tasks due tomorrow', 'Tasks scheduled for tomorrow will appear here.'];
       }
       if (sortMode === 'quickWins') {
-        return ['No quick wins', 'Quick wins have importance 4+ and take 2 hours or less.'];
+        return ['No quick wins', 'Quick wins have importance 4+ and take 120 minutes or less.'];
       }
       if (sortMode === 'due7') {
         return ['Nothing due in the next 7 days', 'Tasks with a due date this week will show here.'];

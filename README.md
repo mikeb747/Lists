@@ -31,7 +31,7 @@ React and TypeScript entry point and copies the PWA manifest and icons from
    - "All", "Archive", and custom user-defined tabs with names and emojis.
    - Tab customization: 12 accent colors, compact list mode, "Hide from All" toggle, tab reordering.
 2. **Tasks & Subheadings**:
-   - Task name, importance rating (1-5), estimated hours, due dates with overdue detection.
+   - Task name, importance rating (1-5), estimated duration in minutes, due dates with overdue detection. Existing hour-based estimates are converted to equivalent minutes.
    - Section subheadings (dividers) for itineraries and long lists.
    - Recurrence rules: Daily, Weekdays, Weekly, Biweekly, Monthly.
    - Checklists / Subtasks: progress bar with completion percentage, collapsible view, and subtask-to-task conversion.

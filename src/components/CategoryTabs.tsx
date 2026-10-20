@@ -187,8 +187,13 @@ export const CategoryTabs: React.FC = () => {
 
     const deltaX = clientX - pointerStartPosRef.current.x;
     const deltaY = clientY - pointerStartPosRef.current.y;
+    const distance = Math.hypot(deltaX, deltaY);
 
-    if (!draggingCategoryIdRef.current && armedCategoryIdRef.current) {
+    if (
+      !draggingCategoryIdRef.current &&
+      armedCategoryIdRef.current &&
+      distance > 40
+    ) {
       const categoryId = armedCategoryIdRef.current;
       armedCategoryIdRef.current = null;
       if (tabOptionsTimerRef.current) {
@@ -245,10 +250,8 @@ export const CategoryTabs: React.FC = () => {
       checkScroll();
       return;
     }
-
     if (armedCategoryIdRef.current || dragActivationTimerRef.current || tabOptionsTimerRef.current) {
-      const distance = Math.hypot(deltaX, deltaY);
-      if (distance > 24) {
+      if (distance > 40) {
         clearPressTimers();
         armedCategoryIdRef.current = null;
         suppressClickRef.current = true;

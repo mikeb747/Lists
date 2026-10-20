@@ -30,7 +30,8 @@ export interface Task {
   id: string;
   name: string;
   importance: number; // 1 - 5
-  estimatedTime: number; // hours (e.g. 0.5, 1, 2)
+  estimatedTime: number; // minutes
+  estimatedTimeUnit?: 'minutes';
   dueDate: string; // YYYY-MM-DD
   categoryId: string;
   completed: boolean;

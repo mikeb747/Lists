@@ -41,7 +41,7 @@ export const TaskActionsSheet: React.FC = () => {
       ...actionTask,
       isSubheading: !isSub,
       importance: !isSub ? 3 : actionTask.importance || 3,
-      estimatedTime: !isSub ? 0 : actionTask.estimatedTime || 1,
+      estimatedTime: !isSub ? 0 : actionTask.estimatedTime || 60,
       dueDate: !isSub ? '' : actionTask.dueDate || '',
       reminderAt: !isSub ? '' : actionTask.reminderAt || '',
     });
