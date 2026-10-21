@@ -99,7 +99,10 @@ testConnection();
 
 export async function signInCloudWithGoogle(): Promise<User> {
   if (Capacitor.getPlatform() === 'android') {
-    const result = await FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
+    const result = await FirebaseAuthentication.signInWithGoogle({
+      skipNativeAuth: true,
+      useCredentialManager: false,
+    });
     const idToken = result.credential?.idToken;
     if (!idToken) {
       throw new Error('Google sign-in did not return an ID token.');
