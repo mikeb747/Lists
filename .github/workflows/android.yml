@@ -57,7 +57,14 @@ jobs:
             echo "::error::ANDROID_DEBUG_KEYSTORE_BASE64 did not decode to the default Android debug keystore. Recreate it from %USERPROFILE%\\.android\\debug.keystore and replace the repository secret."
             exit 1
           fi
-          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep 'SHA1:'
+          SHA1_FINGERPRINT=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep 'SHA1:' | head -n 1 | awk '{print $2}')
+          SHA256_FINGERPRINT=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep 'SHA256:' | head -n 1 | awk '{print $2}')
+          echo "Debug Keystore SHA1: $SHA1_FINGERPRINT"
+          echo "Debug Keystore SHA256: $SHA256_FINGERPRINT"
+          echo "### 🔑 Android Signing Fingerprints for Firebase" >> $GITHUB_STEP_SUMMARY
+          echo "Add these fingerprints to Firebase Console (**Project Settings -> General -> Your Apps -> Android App \`com.mikeb747.lists\`**) to fix Google Sign-in Error 10:" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA-1:** \`$SHA1_FINGERPRINT\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA-256:** \`$SHA256_FINGERPRINT\`" >> $GITHUB_STEP_SUMMARY
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Build web app and sync Android project
