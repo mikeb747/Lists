@@ -31,8 +31,14 @@ are generated from the same artwork as `public/icons/icon.svg`. Open the project
 `npx cap open android` to run it on a device or emulator.
 
 Task reminders use Android local notifications. The app requests notification
-permission when a reminder is added or changed, and restores pending notifications
-from saved tasks at startup. Android reminders include a 15-minute snooze action.
+and exact-alarm permission when a reminder is added or changed, and restores
+pending notifications from saved tasks at startup and when the app returns to
+the foreground. Alarms are scheduled to fire during Doze when Android permits
+it. If Android or the device manufacturer delays reminders, allow notifications
+and **Alarms & reminders** for Lists in system settings; some manufacturers also
+provide an **Unrestricted** battery setting. Android can still suppress alarms
+after the app is force-stopped or due to manufacturer-specific restrictions.
+Android reminders include a 15-minute snooze action.
 Browser and PWA installs continue to use the existing in-app and Web Notifications
 behavior.
 

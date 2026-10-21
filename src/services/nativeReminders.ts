@@ -14,10 +14,18 @@ export async function requestReminderPermission(): Promise<boolean> {
   if (!isAndroidNative()) return true;
 
   const current = await LocalNotifications.checkPermissions();
-  if (current.display === 'granted') return true;
+  const displayPermission =
+    current.display === 'granted'
+      ? current
+      : await LocalNotifications.requestPermissions();
+  if (displayPermission.display !== 'granted') return false;
 
-  const requested = await LocalNotifications.requestPermissions();
-  return requested.display === 'granted';
+  const exactAlarmPermission = await LocalNotifications.checkExactNotificationSetting();
+  if (exactAlarmPermission.exact_alarm === 'granted') return true;
+
+  await LocalNotifications.changeExactNotificationSetting();
+  const updatedExactAlarmPermission = await LocalNotifications.checkExactNotificationSetting();
+  return updatedExactAlarmPermission.exact_alarm === 'granted';
 }
 
 function notificationId(taskId: string, usedIds: Set<number>): number {
@@ -33,8 +41,8 @@ function notificationId(taskId: string, usedIds: Set<number>): number {
   return id;
 }
 
-async function reconcileTaskReminders(tasks: Task[]): Promise<void> {
-  if (!isAndroidNative()) return;
+async function reconcileTaskReminders(tasks: Task[]): Promise<boolean> {
+  if (!isAndroidNative()) return true;
 
   const pending = await LocalNotifications.getPending();
   const managedNotifications = pending.notifications.filter(
@@ -47,9 +55,11 @@ async function reconcileTaskReminders(tasks: Task[]): Promise<void> {
         notifications: managedNotifications.map(({ id }) => ({ id })),
       });
     }
-    return;
+    return false;
   }
 
+  const exactAlarmPermission = await LocalNotifications.checkExactNotificationSetting();
+  const canScheduleExactAlarms = exactAlarmPermission.exact_alarm === 'granted';
   const now = Date.now();
   const reminders = tasks
     .filter((task) => !task.completed && !task.isSubheading && !task.reminderFired && task.reminderAt)
@@ -62,7 +72,11 @@ async function reconcileTaskReminders(tasks: Task[]): Promise<void> {
     id: notificationId(task.id, usedIds),
     title: `Reminder: ${task.name}`,
     body: `${task.dueDate ? `Due ${task.dueDate} • ` : ''}Importance ${task.importance}/5`,
-    schedule: { at: new Date(at), allowWhileIdle: true },
+    schedule: {
+      at: new Date(at),
+      allowWhileIdle: true,
+      isExactNotification: canScheduleExactAlarms,
+    },
     actionTypeId: TASK_REMINDER_ACTION_TYPE,
     extra: { source: REMINDER_SOURCE, taskId: task.id },
   }));
@@ -106,10 +120,19 @@ async function reconcileTaskReminders(tasks: Task[]): Promise<void> {
       console.warn('Android reminders may be delayed:', result.warning.message);
     }
   }
+  if (!canScheduleExactAlarms && notifications.length) {
+    console.warn(
+      'Android exact-alarm permission is disabled; reminders may be delayed. Enable Alarms & reminders for Lists in Android settings.'
+    );
+  }
+  return canScheduleExactAlarms || notifications.length === 0;
 }
 
-export function synchronizeAndroidReminders(tasks: Task[]): Promise<void> {
+export function synchronizeAndroidReminders(tasks: Task[]): Promise<boolean> {
   const next = reconciliationQueue.then(() => reconcileTaskReminders(tasks));
-  reconciliationQueue = next.catch(() => undefined);
+  reconciliationQueue = next.then(
+    () => undefined,
+    () => undefined
+  );
   return next;
 }

@@ -268,6 +268,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeReminderTask, setActiveReminderTask] = useState<Task | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [tasksLoaded, setTasksLoaded] = useState(false);
+  const reminderPermissionWarningShownRef = useRef(false);
 
   // Dialogs
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -849,10 +850,44 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     if (!tasksLoaded || !isAndroidNative()) return;
-    void synchronizeAndroidReminders(tasks).catch((error) => {
-      console.error('Failed to synchronize Android reminders:', error);
-      showToast('Android reminders could not be updated');
-    });
+    const syncReminders = () => {
+      const hasUpcomingReminder = tasks.some((task) => {
+        const reminderTime = task.reminderAt ? new Date(task.reminderAt).getTime() : NaN;
+        return (
+          !task.completed &&
+          !task.isSubheading &&
+          !task.reminderFired &&
+          Number.isFinite(reminderTime) &&
+          reminderTime > Date.now()
+        );
+      });
+      void synchronizeAndroidReminders(tasks)
+        .then((exactAlarmsEnabled) => {
+          if (exactAlarmsEnabled || !hasUpcomingReminder) {
+            reminderPermissionWarningShownRef.current = false;
+          } else if (!reminderPermissionWarningShownRef.current) {
+            reminderPermissionWarningShownRef.current = true;
+            showToast(
+              'Android reminders may be delayed or blocked. Allow notifications and Alarms & reminders for Lists in Android settings.'
+            );
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to synchronize Android reminders:', error);
+          showToast('Android reminders could not be updated');
+        });
+    };
+
+    const syncWhenVisible = () => {
+      if (document.visibilityState === 'visible') syncReminders();
+    };
+    syncReminders();
+    document.addEventListener('visibilitychange', syncWhenVisible);
+    window.addEventListener('focus', syncWhenVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', syncWhenVisible);
+      window.removeEventListener('focus', syncWhenVisible);
+    };
   }, [tasks, tasksLoaded, showToast]);
 
   // Reminder checking interval
@@ -951,7 +986,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       showToast(
         notificationPermissionGranted
           ? 'Task added'
-          : 'Task added, but Android notifications are disabled'
+          : 'Task added, but Android notifications or exact alarms are disabled; reminders may be delayed'
       );
       return true;
     },
@@ -978,7 +1013,9 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         pushTaskToCloud(updated, cloudUser.uid);
       }
       if (!notificationPermissionGranted) {
-        showToast('Task saved, but Android notifications are disabled');
+        showToast(
+          'Task saved, but Android notifications or exact alarms are disabled; reminders may be delayed'
+        );
       }
       return notificationPermissionGranted;
     },
@@ -1030,7 +1067,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         showToast(
           nextReminderPermissionGranted
             ? `Completed! Next occurrence scheduled for ${nextDueDate || 'next cycle'}`
-            : 'Next task created, but Android notifications are disabled'
+            : 'Next task created, but Android notifications or exact alarms are disabled; reminders may be delayed'
         );
       }
 
@@ -1051,7 +1088,9 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         pushTaskToCloud(updated, cloudUser.uid);
       }
       if (!notificationPermissionGranted) {
-        showToast('Task updated, but Android notifications are disabled');
+        showToast(
+          'Task updated, but Android notifications or exact alarms are disabled; reminders may be delayed'
+        );
       }
     },
     [tasks, cloudUser, showToast, ensureReminderPermission]
@@ -1519,7 +1558,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       showToast(
         notificationPermissionGranted
           ? `Snoozed for ${minutes} minutes`
-          : `Snoozed for ${minutes} minutes, but Android notifications are disabled`
+          : `Snoozed for ${minutes} minutes, but Android notifications or exact alarms are disabled`
       );
     },
     [activeReminderTask, tasks, updateTask, showToast]
