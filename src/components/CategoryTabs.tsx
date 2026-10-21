@@ -365,7 +365,7 @@ export const CategoryTabs: React.FC = () => {
           onPointerCancel={handlePointerUp}
           onContextMenu={(e) => {
             e.preventDefault();
-            openCategoryActions('all');
+            if (e.button === 2) openCategoryActions('all');
           }}
         >
           All
@@ -396,7 +396,7 @@ export const CategoryTabs: React.FC = () => {
               onPointerCancel={handlePointerUp}
               onContextMenu={(e) => {
                 e.preventDefault();
-                openCategoryActions(cat.id);
+                if (e.button === 2) openCategoryActions(cat.id);
               }}
             >
               {cat.name}
@@ -416,7 +416,7 @@ export const CategoryTabs: React.FC = () => {
           onPointerCancel={handlePointerUp}
           onContextMenu={(e) => {
             e.preventDefault();
-            openCategoryActions('archive');
+            if (e.button === 2) openCategoryActions('archive');
           }}
         >
           Archive

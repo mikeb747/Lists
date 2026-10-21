@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import type { PluginListenerHandle } from '@capacitor/core';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import {
@@ -1430,7 +1432,7 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [cloudUser, settings, showToast]);
 
   // Local JSON Export/Import
-  const exportLocalBackup = useCallback(() => {
+  const exportLocalBackup = useCallback(async () => {
     const data = {
       version: 1,
       exportedAt: new Date().toISOString(),
@@ -1439,10 +1441,6 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       settings,
     };
     const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
     const now = new Date();
     const timestamp = [
       now.getFullYear(),
@@ -1451,9 +1449,35 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       String(now.getHours()).padStart(2, '0'),
       String(now.getMinutes()).padStart(2, '0'),
     ].join('');
-    a.download = `lists-bak-${timestamp}.json`;
+    const fileName = `lists-bak-${timestamp}.json`;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const file = await Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        });
+        await Share.share({
+          title: 'Lists JSON backup',
+          files: [file.uri],
+          dialogTitle: 'Save or share backup',
+        });
+        showToast('Choose a destination to save your backup');
+      } catch (error) {
+        console.error('Failed to export native backup:', error);
+        showToast('Backup could not be shared. Check available storage and try again.');
+      }
+      return;
+    }
+
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
     a.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     showToast('Exported backup file');
   }, [tasks, categories, settings, showToast]);
 

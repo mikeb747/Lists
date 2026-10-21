@@ -50,6 +50,10 @@ after the app is force-stopped or due to manufacturer-specific restrictions.
 Android reminders include a 15-minute snooze action.
 Browser and PWA installs continue to use the existing in-app and Web Notifications
 behavior.
+
+On Android, **Export JSON** opens the system save/share menu with a backup file;
+it does not need broad storage permission. Browser exports continue to download
+the JSON file directly.
 permission when a reminder is added or changed, and restores pending
 notifications from saved tasks at startup. Android reminders include a 15-minute
 snooze action. Browser and PWA installs continue to use the existing in-app and

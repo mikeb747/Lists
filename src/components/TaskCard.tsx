@@ -10,6 +10,7 @@ interface TaskCardProps {
   isArchive?: boolean;
   isDragging?: boolean;
   onReorderStart?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onReorderMove?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onReorderEnd?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }
 
@@ -21,6 +22,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isArchive = false,
   isDragging = false,
   onReorderStart,
+  onReorderMove,
   onReorderEnd,
 }) => {
   const {
@@ -43,6 +45,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const activePointerIdRef = useRef<number | null>(null);
   const swipeOffsetRef = useRef(0);
   const cardRef = useRef<HTMLDivElement>(null);
+  const taskOptionsTimerRef = useRef<number | null>(null);
+  const optionsPointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressNextClickRef = useRef(false);
 
   const SWIPE_THRESHOLD = 72;
 
@@ -148,6 +153,48 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       s.id === subtaskId ? { ...s, completed: !s.completed } : s
     );
     updateTask({ ...task, subtasks: updated });
+  };
+
+  const handleOptionsPointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (!e.isPrimary || e.pointerType === 'mouse') return;
+    if ((e.target as HTMLElement).closest('button, input, select, textarea, a')) return;
+
+    optionsPointerStartRef.current = { x: e.clientX, y: e.clientY };
+    suppressNextClickRef.current = true;
+    taskOptionsTimerRef.current = window.setTimeout(() => {
+      taskOptionsTimerRef.current = null;
+      openTaskActions(task);
+    }, settings.tabOptionsHoldMs || 1000);
+  };
+
+  const handleOptionsPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const start = optionsPointerStartRef.current;
+    if (!start || taskOptionsTimerRef.current === null) return;
+    if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) {
+      window.clearTimeout(taskOptionsTimerRef.current);
+      taskOptionsTimerRef.current = null;
+    }
+  };
+
+  const handleOptionsPointerEnd = () => {
+    optionsPointerStartRef.current = null;
+    if (taskOptionsTimerRef.current !== null) {
+      window.clearTimeout(taskOptionsTimerRef.current);
+      taskOptionsTimerRef.current = null;
+    }
+    if (suppressNextClickRef.current) {
+      window.setTimeout(() => {
+        suppressNextClickRef.current = false;
+      }, 0);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    openTaskActions(task);
   };
 
   // Pointer swipe handlers
@@ -264,7 +311,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           className={`task-card subheading ${isDragging ? 'dragging' : ''}`}
           data-id={task.id}
           data-is-subheading="true"
-          onClick={() => openTaskActions(task)}
+          onPointerDown={handleOptionsPointerDown}
+          onPointerMove={handleOptionsPointerMove}
+          onPointerUp={handleOptionsPointerEnd}
+          onPointerCancel={handleOptionsPointerEnd}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (e.button === 2) openTaskActions(task);
+          }}
+          onClick={handleCardClick}
         >
           <button
             type="button"
@@ -273,6 +328,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             disabled={!manualOrder}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={onReorderStart}
+            onPointerMove={onReorderMove}
             onPointerUp={onReorderEnd}
             onPointerCancel={onReorderEnd}
           >
@@ -352,7 +408,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
-        onClick={() => openTaskActions(task)}
+        onPointerDownCapture={handleOptionsPointerDown}
+        onPointerMoveCapture={handleOptionsPointerMove}
+        onPointerUpCapture={handleOptionsPointerEnd}
+        onPointerCancelCapture={handleOptionsPointerEnd}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (e.button === 2) openTaskActions(task);
+        }}
+        onClick={handleCardClick}
       >
         <button
           type="button"
@@ -361,6 +425,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           disabled={!manualOrder}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={onReorderStart}
+          onPointerMove={onReorderMove}
           onPointerUp={onReorderEnd}
           onPointerCancel={onReorderEnd}
         >

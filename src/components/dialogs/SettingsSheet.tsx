@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { usePlanner } from '../../context/PlannerContext';
 import { ThemeType, TaskColorMode } from '../../types';
 import { playReminderChime } from '../../services/audio';
@@ -129,6 +130,7 @@ export const SettingsSheet: React.FC = () => {
   const activeTheme = settings.theme || 'system';
   const activeColor = settings.colorTheme || 'purple';
   const activeTaskColorMode = settings.taskColorMode || 'both';
+  const isNativeApp = Capacitor.isNativePlatform();
 
   const t1 = Number(settings.tabDragHoldMs) || 400;
   const t2 = Number(settings.tabOptionsHoldMs) || 1000;
@@ -285,8 +287,7 @@ export const SettingsSheet: React.FC = () => {
             </div>
           </div>
 
-          {/* PWA Installation */}
-          <div className="settings-group" id="settings-pwa-group">
+          {!isNativeApp && <div className="settings-group" id="settings-pwa-group">
             <label className="settings-label">PWA Installation</label>
             <button
               type="button"
@@ -316,61 +317,62 @@ export const SettingsSheet: React.FC = () => {
                 <path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
               </svg>
             </button>
-          </div>
+          </div>}
 
-          {/* Tab Press Timers */}
           <div className="settings-group" id="settings-tab-timers-group">
-            <label className="settings-label">Tab Press Timers</label>
+            <label className="settings-label">Long &amp; Short Press Timers</label>
             <p className="settings-hint">
-              Configure touch &amp; hold durations for dragging tabs and opening tab options on
-              touchscreen devices.
+              Set how long to press before dragging or opening options for a tab or task.
             </p>
-            <div className="timer-setting-item">
-              <div className="timer-setting-header">
-                <span className="timer-setting-title">Timer 1: Drag Activation</span>
-                <span className="timer-setting-value" id="val-timer1">
-                  {t1} ms
-                </span>
+            <div className="timer-settings-card">
+              <div className="timer-setting-item">
+                <div className="timer-setting-header">
+                  <span className="timer-setting-title">Short Press: Drag Activation</span>
+                  <span className="timer-setting-value" id="val-timer1">
+                    {t1} ms
+                  </span>
+                </div>
+                <p className="timer-setting-hint">
+                  Hold a tab or task reorder handle for this duration, then drag to reorder.
+                </p>
+                <input
+                  type="range"
+                  id="input-timer1"
+                  className="timer-range-slider"
+                  min="200"
+                  max="1000"
+                  step="50"
+                  value={t1}
+                  onChange={(e) => updateSettings({ tabDragHoldMs: Number(e.target.value) })}
+                  aria-label="Short press drag activation duration"
+                />
               </div>
-              <p className="timer-setting-hint">
-                Briefly hold a category tab for this duration to start dragging it to a new position.
-              </p>
-              <input
-                type="range"
-                id="input-timer1"
-                className="timer-range-slider"
-                min="200"
-                max="1000"
-                step="50"
-                value={t1}
-                onChange={(e) => updateSettings({ tabDragHoldMs: Number(e.target.value) })}
-                aria-label="Timer 1 drag activation hold duration"
-              />
-            </div>
-            <div className="timer-setting-item">
-              <div className="timer-setting-header">
-                <span className="timer-setting-title">Timer 2: Tab Options</span>
-                <span className="timer-setting-value" id="val-timer2">
-                  {t2} ms
-                </span>
+              <div className="timer-setting-item">
+                <div className="timer-setting-header">
+                  <span className="timer-setting-title">Long Press: Options</span>
+                  <span className="timer-setting-value" id="val-timer2">
+                    {t2} ms
+                  </span>
+                </div>
+                <p className="timer-setting-hint">
+                  Press and hold a tab or task without dragging to open its options.
+                </p>
+                <input
+                  type="range"
+                  id="input-timer2"
+                  className="timer-range-slider"
+                  min="500"
+                  max="2500"
+                  step="50"
+                  value={t2}
+                  onChange={(e) => updateSettings({ tabOptionsHoldMs: Number(e.target.value) })}
+                  aria-label="Long press options duration"
+                />
               </div>
-              <p className="timer-setting-hint">Hold still without dragging to open color palette and options.</p>
-              <input
-                type="range"
-                id="input-timer2"
-                className="timer-range-slider"
-                min="500"
-                max="2500"
-                step="50"
-                value={t2}
-                onChange={(e) => updateSettings({ tabOptionsHoldMs: Number(e.target.value) })}
-                aria-label="Timer 2 tab options hold duration"
-              />
             </div>
           </div>
 
-          {/* Reminders & Notifications */}
-          <div className="settings-group">
+          {!isNativeApp && <div className="settings-group">
             <label className="settings-label">Reminders &amp; Notifications</label>
             <div className="settings-item-btn" id="notif-settings-row" style={{ cursor: 'default' }}>
               <div className="settings-item-left">
@@ -408,7 +410,7 @@ export const SettingsSheet: React.FC = () => {
                 Send Test Alert
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Program Name */}
           <div className="settings-group">
@@ -434,7 +436,9 @@ export const SettingsSheet: React.FC = () => {
           <div className="settings-group">
             <label className="settings-label">Data Storage</label>
             <p className="settings-hint">
-              Data is stored locally in browser IndexedDB. Export or import a JSON backup manually.
+              {isNativeApp
+                ? 'Data is stored on this device. Export a JSON backup using Android’s save or share menu.'
+                : 'Data is stored locally in browser IndexedDB. Export or import a JSON backup manually.'}
             </p>
             <div className="settings-actions-row">
               <button

@@ -2096,14 +2096,25 @@ html[data-theme="dark"] .tracker-pill.pill-partial {
 }
 
 /* Tab Press Timers in Settings */
-.timer-setting-item {
+.timer-settings-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  padding: 8px 12px;
   background: var(--md-surface-container);
   border: 1px solid var(--md-outline-variant);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+}
+
+.timer-setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 2px;
+}
+
+.timer-setting-item + .timer-setting-item {
+  border-top: 1px solid var(--md-outline-variant);
 }
 
 .timer-setting-header {

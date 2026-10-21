@@ -18,6 +18,9 @@ export const TaskList: React.FC = () => {
   const pointerMoveListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const pointerEndListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const preventScrollListenerRef = useRef<((event: Event) => void) | null>(null);
+  const pendingDragStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const dragActivationTimerRef = useRef<number | null>(null);
+  const pendingDragMoveListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOrder, setDragOrder] = useState<Task[]>([]);
   const [isFullPage, setIsFullPage] = useState(false);
@@ -176,17 +179,18 @@ export const TaskList: React.FC = () => {
     }
   };
 
-  const handleReorderStart = (task: Task, e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!isManual || !e.isPrimary || e.button !== 0 || pointerIdRef.current !== null) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    pointerIdRef.current = e.pointerId;
+  const beginTaskDrag = (
+    task: Task,
+    handle: HTMLButtonElement,
+    pointerId: number,
+    clientX: number,
+    clientY: number
+  ) => {
+    if (pointerIdRef.current !== pointerId) return;
     draggingTaskIdRef.current = task.id;
-    pointerYRef.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    pointerYRef.current = clientY;
 
-    const card = e.currentTarget.closest('.task-card');
+    const card = handle.closest('.task-card');
     if (card instanceof HTMLElement) {
       const bounds = card.getBoundingClientRect();
       const ghost = card.cloneNode(true) as HTMLElement;
@@ -196,8 +200,8 @@ export const TaskList: React.FC = () => {
       ghost.style.left = `${bounds.left}px`;
       ghost.style.top = `${bounds.top}px`;
       ghostRef.current = ghost;
-      grabOffsetXRef.current = e.clientX - bounds.left;
-      grabOffsetYRef.current = e.clientY - bounds.top;
+      grabOffsetXRef.current = clientX - bounds.left;
+      grabOffsetYRef.current = clientY - bounds.top;
       document.body.appendChild(ghost);
     }
 
@@ -237,8 +241,73 @@ export const TaskList: React.FC = () => {
     autoScrollFrameRef.current = requestAnimationFrame(autoScroll);
   };
 
+  const handleReorderStart = (task: Task, e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isManual || !e.isPrimary || e.button !== 0 || pointerIdRef.current !== null) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { pointerId, clientX, clientY, currentTarget } = e;
+    pointerIdRef.current = pointerId;
+    pendingDragStartRef.current = { pointerId, x: clientX, y: clientY };
+    currentTarget.setPointerCapture(pointerId);
+
+    pendingDragMoveListenerRef.current = (event) => {
+      const pending = pendingDragStartRef.current;
+      if (!pending || event.pointerId !== pending.pointerId) return;
+      if (Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <= 12) return;
+      if (dragActivationTimerRef.current !== null) {
+        window.clearTimeout(dragActivationTimerRef.current);
+        dragActivationTimerRef.current = null;
+      }
+      window.removeEventListener('pointermove', pendingDragMoveListenerRef.current!);
+      pendingDragMoveListenerRef.current = null;
+      pendingDragStartRef.current = null;
+      pointerIdRef.current = null;
+    };
+    window.addEventListener('pointermove', pendingDragMoveListenerRef.current);
+    dragActivationTimerRef.current = window.setTimeout(() => {
+      dragActivationTimerRef.current = null;
+      pendingDragStartRef.current = null;
+      if (pendingDragMoveListenerRef.current) {
+        window.removeEventListener('pointermove', pendingDragMoveListenerRef.current);
+        pendingDragMoveListenerRef.current = null;
+      }
+      beginTaskDrag(task, currentTarget, pointerId, clientX, clientY);
+    }, settings.tabDragHoldMs || 400);
+  };
+
+  const handleReorderMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const pending = pendingDragStartRef.current;
+    if (!pending || e.pointerId !== pending.pointerId) return;
+    if (Math.hypot(e.clientX - pending.x, e.clientY - pending.y) > 12) {
+      if (dragActivationTimerRef.current !== null) {
+        window.clearTimeout(dragActivationTimerRef.current);
+        dragActivationTimerRef.current = null;
+      }
+      if (pendingDragMoveListenerRef.current) {
+        window.removeEventListener('pointermove', pendingDragMoveListenerRef.current);
+        pendingDragMoveListenerRef.current = null;
+      }
+      pendingDragStartRef.current = null;
+      pointerIdRef.current = null;
+    }
+  };
+
   const handleReorderEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    if (pendingDragStartRef.current?.pointerId === e.pointerId) {
+      if (dragActivationTimerRef.current !== null) {
+        window.clearTimeout(dragActivationTimerRef.current);
+        dragActivationTimerRef.current = null;
+      }
+      if (pendingDragMoveListenerRef.current) {
+        window.removeEventListener('pointermove', pendingDragMoveListenerRef.current);
+        pendingDragMoveListenerRef.current = null;
+      }
+      pendingDragStartRef.current = null;
+      pointerIdRef.current = null;
+      return;
+    }
     finishTaskDrag(e.pointerId);
   };
 
@@ -246,6 +315,12 @@ export const TaskList: React.FC = () => {
     () => () => {
       if (autoScrollFrameRef.current !== null) {
         cancelAnimationFrame(autoScrollFrameRef.current);
+      }
+      if (dragActivationTimerRef.current !== null) {
+        window.clearTimeout(dragActivationTimerRef.current);
+      }
+      if (pendingDragMoveListenerRef.current) {
+        window.removeEventListener('pointermove', pendingDragMoveListenerRef.current);
       }
       if (pointerMoveListenerRef.current) {
         window.removeEventListener('pointermove', pointerMoveListenerRef.current);
@@ -373,6 +448,7 @@ export const TaskList: React.FC = () => {
           isArchive={isArchive}
           isDragging={draggingTaskId === task.id}
           onReorderStart={(e) => handleReorderStart(task, e)}
+          onReorderMove={handleReorderMove}
           onReorderEnd={handleReorderEnd}
         />
       ))}
