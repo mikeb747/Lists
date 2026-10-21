@@ -26,7 +26,8 @@ read and write the `categoryDeletions` collection.
 
 The Android app is a Capacitor wrapper around the same React interface. Install
 Android Studio and its Android SDK, then run `npm run android:sync` to build the
-web app and copy it into the native project. Open the project with
+web app and copy it into the native project. Android launcher and splash assets
+are generated from the same artwork as `public/icons/icon.svg`. Open the project with
 `npx cap open android` to run it on a device or emulator.
 
 Task reminders use Android local notifications. The app requests notification
