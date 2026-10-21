@@ -1305,12 +1305,22 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSyncStatus('synced');
       setSyncStatusMsg(`Connected as ${user.email} ✓`);
       showToast(`Connected as ${user.displayName || user.email}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Cloud connect error:', err);
-      let msg = err.message || 'Failed to sign in';
-      if (err.code === 'auth/popup-blocked') {
+      const errorObject = typeof err === 'object' && err !== null ? err : null;
+      const errorCode =
+        errorObject && 'code' in errorObject ? String(errorObject.code) : '';
+      const errorMessage =
+        errorObject && 'message' in errorObject
+          ? String(errorObject.message)
+          : String(err);
+      let msg = errorMessage || 'Failed to sign in';
+      if (errorCode === '10' || errorMessage.trim() === '10') {
+        msg =
+          'Google sign-in configuration error (DEVELOPER_ERROR 10). Check that Google sign-in is enabled in Firebase and the Android OAuth client matches this app’s package name and signing certificate SHA-1.';
+      } else if (errorCode === 'auth/popup-blocked') {
         msg = 'Popup was blocked by your browser. Please allow popups.';
-      } else if (err.code === 'auth/popup-closed-by-user') {
+      } else if (errorCode === 'auth/popup-closed-by-user') {
         msg = 'Sign-in cancelled.';
       }
       setSyncStatus('error');
