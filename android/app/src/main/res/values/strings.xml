@@ -4,4 +4,5 @@
     <string name="title_activity_main">Lists</string>
     <string name="package_name">com.mikeb747.lists</string>
     <string name="custom_url_scheme">com.mikeb747.lists</string>
+    <string name="default_web_client_id">905454373608-4n68uuprvh2g3sdvpql1q8vqsnpr4d74.apps.googleusercontent.com</string>
 </resources>
